@@ -163,10 +163,9 @@ Users without a `@username` are mentioned via a `tg://user?id=` text mention.
   `banChatMember` + immediate `unbanChatMember` — a kick that does *not* block rejoining.
 - Message in the chat: *"Дима взял(а) паузу от чата. Возвращайся, когда будешь готов(а) 🙏"*.
 - **Returning:**
-  - When someone joins, the welcome message asks them to open the bot in private and press
-    Start (needed so the bot can write to them later).
-  - On removal the bot sends them a DM with a personal one-time invite link
-    (`createChatInviteLink`, `member_limit: 1`).
+  - If the member has ever pressed Start in the bot's private chat, the bot DMs them a personal
+    one-time invite link (`createChatInviteLink`, `member_limit: 1`). The bot doesn't push
+    people to do that; in private it only explains that everything happens in the group.
   - If they never started the bot, any member can share the group link.
 - On return: all stats are kept, the streak starts from 0, days outside the chat don't count
   against regularity.

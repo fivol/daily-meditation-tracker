@@ -59,7 +59,7 @@ export function registerEvents(bot: Bot): void {
     const isIn = IN_CHAT.includes(after.status);
     if (!wasIn && isIn) {
       const member = await markJoined(chat.id, after.user, practiceDate(settings));
-      await ctx.api.sendMessage(chat.id, renderWelcome(member, ctx.me.username), {
+      await ctx.api.sendMessage(chat.id, renderWelcome(member), {
         ...html,
         disable_notification: true,
       });

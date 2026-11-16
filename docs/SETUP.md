@@ -56,8 +56,8 @@ The production instance runs on the `helsinki` server and is deployed with the
    join/leave updates.
 3. As a group admin, send `/setup`. The bot pins the "today" progress message and starts the
    daily schedule.
-4. Ask members to open the bot in private and press **Start** — otherwise it can't send them the
-   return link if they are removed.
+4. Optional: members who press **Start** in the bot's private chat get a personal return link
+   if they are ever removed; for everyone else, any member can share the group link.
 
 Members appear in the stats after their first vote or any message in the group.
 

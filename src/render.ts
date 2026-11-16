@@ -216,13 +216,17 @@ export function renderRemovalDm(chatTitle: string, inviteLink: string): string {
   );
 }
 
-export function renderWelcome(m: Member, botUsername: string): string {
+export function renderWelcome(m: Member): string {
   return (
     `Добро пожаловать, ${mention(m)} 🙏\n` +
-    `Утром и вечером бот присылает опрос — просто отметь, сколько сидел(а).\n` +
-    `Открой @${botUsername} в личке и нажми «Start», чтобы бот мог написать тебе лично. Правила: /help`
+    `Утром и вечером бот присылает опрос — просто отметь, сколько сидел(а). Правила: /help`
   );
 }
+
+/** Reply to anything in the private chat: the bot lives in the group. */
+export const PRIVATE_TEXT =
+  '🪷 Этот бот работает в группе: там опросы, таблица и /me — твоя статистика.\n' +
+  'Сюда он напишет, только если понадобится, например пришлёт ссылку, чтобы вернуться в группу.';
 
 export const HELP_TEXT = `🪷 <b>Как это работает</b>
 

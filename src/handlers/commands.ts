@@ -1,7 +1,7 @@
 import type { Bot, Context } from 'grammy';
 import { DEFAULT_SETTINGS } from '../config.js';
 import { users } from '../db.js';
-import { HELP_TEXT, renderMe } from '../render.js';
+import { HELP_TEXT, PRIVATE_TEXT, renderMe } from '../render.js';
 import { getChat, updateChat } from '../services/chats.js';
 import { checkinsOfMember, saveCheckin } from '../services/checkins.js';
 import { buildLeaderboard, recomputeMember, sendExport } from '../services/jobs.js';
@@ -13,7 +13,6 @@ import type { ChatSettings, Minutes, Schedule, Slot } from '../types.js';
 import {
   args,
   deleteCommand,
-  html,
   isAdmin,
   replyTemp,
   requireChat,
@@ -26,6 +25,7 @@ type Handler = (ctx: Context) => Promise<void>;
 /** Group command: deletes the command message, checks setup and (optionally) admin rights. */
 function groupCommand(handler: (ctx: Context, settings: ChatSettings) => Promise<void>, adminOnly = false): Handler {
   return async (ctx) => {
+    if (ctx.chat?.type === 'private') return void (await ctx.reply(PRIVATE_TEXT));
     await deleteCommand(ctx);
     const settings = await requireChat(ctx);
     if (!settings) return;
@@ -37,12 +37,12 @@ function groupCommand(handler: (ctx: Context, settings: ChatSettings) => Promise
 const start: Handler = async (ctx) => {
   if (ctx.chat?.type !== 'private' || !ctx.from) return;
   await users().doc(String(ctx.from.id)).set({ canDm: true }, { merge: true });
-  await ctx.reply('🙏 Готово — теперь бот сможет написать тебе лично.\n\n' + HELP_TEXT, html);
+  await ctx.reply(PRIVATE_TEXT);
 };
 
 const help: Handler = async (ctx) => {
   await deleteCommand(ctx);
-  if (ctx.chat?.type === 'private') await ctx.reply(HELP_TEXT, html);
+  if (ctx.chat?.type === 'private') await ctx.reply(PRIVATE_TEXT);
   else await replyTemp(ctx, HELP_TEXT);
 };
 
