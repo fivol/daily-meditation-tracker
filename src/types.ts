@@ -26,6 +26,10 @@ export interface ChatSettings {
   /** Last practice day whose results are final. */
   lastClosedDate: string;
   progressMessageId?: number;
+  /** Group achievements: id → date. */
+  awards?: Record<string, string>;
+  /** Closed days in a row without a single missed day in the group. */
+  noLossRun?: number;
 }
 
 export type MemberStatus = 'active' | 'paused' | 'removed';
@@ -57,6 +61,39 @@ export interface MemberStats {
   lastPracticeDate: string | null;
   /** Last 30 closed calendar days, oldest first. */
   recent: DayEntry[];
+
+  // Counters behind the achievements. Runs count consecutive qualifying days; a paused day
+  // without practice freezes them, any other day that doesn't qualify resets them.
+  /** Days with both sessions of 60 minutes. */
+  fullHourRun: number;
+  /** Days with at least one 60-minute session. */
+  hourRun: number;
+  /** Days with both sessions of any length. */
+  bothRun: number;
+  /** Days with a 30/60-minute morning session checked in before 07:00. */
+  gongRun: number;
+  /** Check-in times (minutes from the day start) of the current run of 30/60-minute mornings, last 14. */
+  morningTimes: number[];
+  /** Days whose first session was checked in before the reminder. */
+  noReminderRun: number;
+  /** Sessions done on paused days. */
+  pausedSessions: number;
+  /** Evening sessions checked in after midnight. */
+  owlCount: number;
+  /** Sessions that replaced a "didn't practice" vote. */
+  rescuedCount: number;
+  /** Longest streak that has already broken. */
+  brokenBest: number;
+}
+
+/** A granted title or achievement. */
+export interface AwardRecord {
+  /** Day the condition was met. */
+  date: string;
+  /** Granted today and may still be taken back if the vote changes; final after day close. */
+  pending?: boolean;
+  /** Congratulation message, to edit or delete it on revocation. */
+  messageId?: number;
 }
 
 export interface Member extends MemberStats {
@@ -68,6 +105,12 @@ export interface Member extends MemberStats {
   status: MemberStatus;
   pauseUntil?: string;
   pauseReason?: string;
+  /** Highest title level (1-based); absent before the first title. */
+  title?: number;
+  /** Titles (`title:N`) and achievements; kept out of the recomputable aggregates. */
+  awards?: Record<string, AwardRecord>;
+  /** Last day the bot removed the member for missed days. */
+  removedOn?: string;
 }
 
 export type CheckinStatus = 'done' | 'skipped' | 'revoked';
@@ -81,6 +124,8 @@ export interface Checkin {
   firstAt: string;
   updatedAt: string;
   source: 'poll' | 'admin';
+  /** The slot was once voted "didn't practice". */
+  wasSkipped?: boolean;
 }
 
 export type JobName = 'leaderboard' | 'morning' | 'evening' | 'reminder';
@@ -95,7 +140,8 @@ export interface DayDoc {
   jobsDone?: Partial<Record<JobName, boolean>>;
   /** Snapshot taken at day close, used to recompute stats from scratch. */
   statuses?: Record<string, DayStatus>;
-  milestones?: string[];
+  /** Titles and achievements of the day, shown in the next morning's leaderboard. */
+  awardLines?: string[];
 }
 
 export interface PollDoc {

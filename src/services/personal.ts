@@ -1,12 +1,13 @@
-import { applyDay, rankMembers, type DaySessions } from '../stats.js';
+import { rankMembers, withToday, type DaySessions } from '../stats.js';
 import { addDays, dateRange, practiceDate, usualTime } from '../time.js';
 import type { ChatSettings, Member, Minutes, Slot } from '../types.js';
-import { checkinsOfMember } from './checkins.js';
+import { checkinsOfMember, doneSessions, sessionKey } from './checkins.js';
 import { listMembers } from './members.js';
 
 export interface PersonalStats {
   /** Aggregates with today's sessions already counted. */
   member: Member;
+  date: string;
   today: DaySessions;
   usualTimes: Partial<Record<Slot, string>>;
   daysWithUs: number;
@@ -24,14 +25,8 @@ export async function personalStats(chatId: number, settings: ChatSettings, memb
     listMembers(chatId),
   ]);
 
-  const todayDone: DaySessions = Object.fromEntries(
-    list.filter((c) => c.date === today).map((c) => [c.slot, c.minutes]),
-  );
-  // Today's sessions count right away; regularity stays on closed days so that a day
-  // with only the morning done doesn't drag it down until the evening.
-  const live = Object.keys(todayDone).length
-    ? { ...member, ...applyDay(member, today, 'active', todayDone), recent: member.recent }
-    : member;
+  const todayDone = doneSessions(list).get(sessionKey(today, member.userId)) ?? {};
+  const live = withToday(member, today, todayDone, settings);
 
   const firstAt = (slot: Slot) => list.filter((c) => c.slot === slot).map((c) => c.firstAt);
   const durations: Record<Minutes, number> = { 60: 0, 30: 0, 15: 0 };
@@ -42,6 +37,7 @@ export async function personalStats(chatId: number, settings: ChatSettings, memb
 
   return {
     member: live,
+    date: today,
     today: todayDone,
     usualTimes: { morning: usualTime(settings, firstAt('morning')), evening: usualTime(settings, firstAt('evening')) },
     daysWithUs: dateRange(member.joinedDate, today).length,

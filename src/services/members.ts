@@ -1,6 +1,6 @@
 import type { User } from 'grammy/types';
 import { members } from '../db.js';
-import { emptyStats } from '../stats.js';
+import { emptyStats, withStatsDefaults } from '../stats.js';
 import type { Member } from '../types.js';
 
 /** Members already known to exist, to avoid a read on every group message. */
@@ -15,7 +15,7 @@ export async function ensureMember(chatId: number, user: User, today: string): P
   const ref = members(chatId).doc(String(user.id));
   const snap = await ref.get();
   if (snap.exists) {
-    const member = { ...snap.data()!, ...profile(user) };
+    const member = withStatsDefaults({ ...snap.data()!, ...profile(user) });
     await ref.set(profile(user), { merge: true });
     known.add(`${chatId}:${user.id}`);
     return member;
@@ -54,17 +54,19 @@ export async function markLeft(chatId: number, userId: number): Promise<void> {
 
 export async function getMember(chatId: number, userId: number): Promise<Member | null> {
   const snap = await members(chatId).doc(String(userId)).get();
-  return snap.data() ?? null;
+  const data = snap.data();
+  return data ? withStatsDefaults(data) : null;
 }
 
 export async function findByUsername(chatId: number, username: string): Promise<Member | null> {
   const snap = await members(chatId).where('username', '==', username.replace(/^@/, '')).limit(1).get();
-  return snap.docs[0]?.data() ?? null;
+  const data = snap.docs[0]?.data();
+  return data ? withStatsDefaults(data) : null;
 }
 
 export async function listMembers(chatId: number): Promise<Member[]> {
   const snap = await members(chatId).get();
-  return snap.docs.map((doc) => doc.data());
+  return snap.docs.map((doc) => withStatsDefaults(doc.data()));
 }
 
 export async function updateMember(chatId: number, userId: number, patch: Partial<Member>): Promise<void> {

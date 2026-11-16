@@ -21,7 +21,38 @@ export const DEFAULT_SETTINGS: Omit<ChatSettings, 'startDate'> = {
   newcomerDays: 7,
 };
 
-export const STREAK_MILESTONES = [7, 14, 21, 30, 50, 100, 200, 365];
-export const SESSION_MILESTONE_STEP = 100;
-export const HOURS_MILESTONE_STEP = 100;
 export const RECENT_DAYS = 30;
+
+export interface Title {
+  emoji: string;
+  name: string;
+  /** Genitive, for "до 🧡 Монаха". */
+  genitive: string;
+  hours: number;
+  line: string;
+}
+
+/** Titles in ascending order; a member holds the highest one whose threshold they reached. */
+export const TITLES: Title[] = [
+  { emoji: '🌱', name: 'Искатель', genitive: 'Искателя', hours: 2, line: 'Первые два часа на подушке' },
+  { emoji: '📖', name: 'Ученик', genitive: 'Ученика', hours: 5, line: 'Путь начался' },
+  { emoji: '🐣', name: 'Падаван', genitive: 'Падавана', hours: 10, line: 'Сила пробуждается' },
+  { emoji: '📿', name: 'Послушник', genitive: 'Послушника', hours: 30, line: 'Подушка уже узнаёт тебя' },
+  { emoji: '🌿', name: 'Практик', genitive: 'Практика', hours: 60, line: 'Месяц практики за плечами' },
+  { emoji: '🎒', name: 'Старый студент', genitive: 'Старого студента', hours: 100, line: 'Столько же длится 10-дневный курс' },
+  { emoji: '🧡', name: 'Монах', genitive: 'Монаха', hours: 200, line: 'Два курса, не выходя из дома' },
+  { emoji: '🏔', name: 'Отшельник', genitive: 'Отшельника', hours: 350, line: 'Полгода утром и вечером' },
+  { emoji: '🧙', name: 'Мастер', genitive: 'Мастера', hours: 500, line: 'Падаван вырос' },
+  { emoji: '🥋', name: 'Сенсей', genitive: 'Сенсея', hours: 750, line: 'Год практики. Есть чему научить' },
+  { emoji: '🕉', name: 'Йог', genitive: 'Йога', hours: 1000, line: 'Тысяча часов тишины' },
+  { emoji: '🙏', name: 'Гуру', genitive: 'Гуру', hours: 1500, line: 'За советом теперь идут к тебе' },
+  { emoji: '👳', name: 'Гоенка', genitive: 'Гоенки', hours: 2000, line: 'Будь счастлив!' },
+  { emoji: '🪷', name: 'Бодхисаттва', genitive: 'Бодхисаттвы', hours: 3000, line: 'Осталось чуть-чуть' },
+  { emoji: '☸️', name: 'Будда', genitive: 'Будды', hours: 3650, line: 'Пять лет по два часа каждый день' },
+];
+
+/** Local times used by the time-based achievements. */
+export const GONG_BEFORE = '07:00';
+export const OWL_AFTER = '00:00';
+export const CLOCK_DAYS = 14;
+export const CLOCK_SPREAD_MINUTES = 60;

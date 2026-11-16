@@ -69,7 +69,7 @@ Why these times:
 - The bot stores the time of every vote (and of every change).
 
 Why not a quiz: quiz votes can't be retracted, so "не получилось" would lock a person out for the
-whole day, and a misclick could not be fixed. The confetti is replaced by milestone messages
+whole day, and a misclick could not be fixed. The confetti is replaced by title and achievement congratulations
 (§4.4) and the live progress line (§4.2).
 
 ---
@@ -120,10 +120,11 @@ Added on top of Monday's leaderboard:
 - Group: total sessions and hours for the week, % of the maximum, best day.
 - Everyone with a perfect week (14/14) and everyone who practiced every day.
 
-### 4.4 Milestones
+### 4.4 Titles and achievements
 
-Detected at day close and listed in the next morning's leaderboard (no extra messages):
-streaks of 7, 14, 21, 30, 50, 100, 200, 365 days; every 100 sessions; every 100 hours.
+Titles grow with total hours of practice; achievements are granted once for specific efforts.
+Both are congratulated right after the vote and listed in the next morning's leaderboard.
+Full description: [AWARDS.md](AWARDS.md).
 
 ### 4.5 Personal stats: `/me`
 
@@ -244,7 +245,8 @@ Command messages in the group are deleted by the bot after handling, to keep the
 chats/{chatId}
   timezone, dayBoundaryHour, schedule{morning, evening, reminder},
   missLimit, maxPauseDays, newcomerDays,
-  startDate, lastClosedDate, progressMessageId
+  startDate, lastClosedDate, progressMessageId,
+  awards{id: date}, noLossRun                   // group achievements
 
 chats/{chatId}/members/{userId}
   userId, firstName, lastName, username, joinedDate,
@@ -253,17 +255,20 @@ chats/{chatId}/members/{userId}
   activeDays, sessions, morningSessions, eveningSessions, minutes,
   practicedDays, fullDays, currentStreak, bestStreak, missedInRow, lastPracticeDate,
   recent: [{date, status, sessions, minutes}]   // last 30 closed days
+  fullHourRun, hourRun, bothRun, gongRun, morningTimes, noReminderRun,
+  pausedSessions, owlCount, rescuedCount, brokenBest   // achievement counters
+  title, awards{id: {date, pending?, messageId?}}, removedOn   // see AWARDS.md, not recomputed
 
 chats/{chatId}/checkins/{date}_{userId}_{slot}      // deterministic id ⇒ one record per slot
   userId, date, slot: morning | evening,
   status: done | skipped | revoked, minutes: 60 | 30 | 15 | null,
-  firstAt, updatedAt, source: poll | admin
+  firstAt, updatedAt, source: poll | admin, wasSkipped
 
 chats/{chatId}/days/{date}
   polls{morning, evening: {messageId, pollId}},
   jobsDone{morning, evening, reminder},           // idempotency markers
   statuses{userId: active | paused | absent},     // snapshot taken at close
-  milestones[]
+  awardLines[]                                    // titles/achievements of the day, for the leaderboard
 
 polls/{pollId} → { chatId, date, slot, optionMinutes: [60, 30, 15, null] }
 users/{userId} → { canDm }                         // started the bot in private

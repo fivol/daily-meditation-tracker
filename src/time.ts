@@ -70,3 +70,15 @@ export function usualTime(settings: TimeSettings, isoMoments: string[]): string 
   const minutes = (median + settings.dayBoundaryHour * 60) % (24 * 60);
   return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 }
+
+/** Minutes from the start of the practice day (the boundary hour) to a moment, 0..1439. */
+export function minutesFromDayStart(settings: TimeSettings, iso: string): number {
+  const local = DateTime.fromISO(iso).setZone(settings.timezone);
+  return (local.hour * 60 + local.minute - settings.dayBoundaryHour * 60 + 24 * 60) % (24 * 60);
+}
+
+/** Same, for a local "HH:mm" time. */
+export function clockFromDayStart(settings: TimeSettings, hhmm: string): number {
+  const [h, m] = hhmm.split(':').map(Number);
+  return (h * 60 + m - settings.dayBoundaryHour * 60 + 24 * 60) % (24 * 60);
+}

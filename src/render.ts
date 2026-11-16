@@ -1,4 +1,13 @@
-import type { Milestone } from './stats.js';
+import {
+  ACHIEVEMENTS,
+  achievementCount,
+  GROUP_AWARDS,
+  titleAt,
+  titleLevelOf,
+  type AwardState,
+} from './awards.js';
+import { TITLES } from './config.js';
+import type { DaySessions } from './stats.js';
 import { rankMembers, recentSessions, regularity } from './stats.js';
 import { dayMonth, humanDate, shortDate } from './time.js';
 import type { DayEntry, Member, Minutes, Slot } from './types.js';
@@ -53,17 +62,51 @@ function strip(recent: DayEntry[], length = 7): string {
     .join('');
 }
 
-export function milestoneText(m: Pick<Member, 'firstName'>, milestone: Milestone): string {
+/** Adds a period unless the text already ends with punctuation or an emoji. */
+const sentence = (text: string) => (/[.!?…\p{Extended_Pictographic}]\s*$/u.test(text) ? text : `${text}.`);
+
+const hoursText = (n: number) => `${n} ${plural(n, 'час', 'часа', 'часов')}`;
+
+/** Congratulation for awards granted by one vote: the top title first, then achievements. */
+export function renderAwards(m: Pick<Member, 'firstName'>, ids: string[]): string {
   const name = displayName(m);
-  switch (milestone.kind) {
-    case 'streak':
-      return `🎉 ${name} — ${days(milestone.value)} подряд без пропусков!`;
-    case 'sessions':
-      return `🎉 ${name} — ${milestone.value} сессий!`;
-    case 'hours':
-      return `🎉 ${name} — ${milestone.value} часов практики!`;
+  const top = Math.max(0, ...ids.map((id) => titleLevelOf(id) ?? 0));
+  const parts: string[] = [];
+  if (top) {
+    const title = titleAt(top)!;
+    const next = titleAt(top + 1);
+    const lines = ['🎉 <b>Новое звание!</b>', `${name} теперь ${title.emoji} ${title.name}`, sentence(title.line)];
+    if (next) lines.push(`Дальше: ${next.emoji} ${next.name} · ещё ${next.hours - title.hours} ч`);
+    parts.push(lines.join('\n'));
   }
+  for (const a of ACHIEVEMENTS.filter((a) => ids.includes(a.id))) {
+    const lines = [`${a.emoji} ${name} — «${a.name}»`, sentence(a.text)];
+    if (a.id === 'firstStep' && !top) {
+      const first = TITLES[0];
+      lines.push(`Дальше: звание ${first.emoji} ${first.name} — ${hoursText(first.hours)} практики`);
+    }
+    parts.push(lines.join('\n'));
+  }
+  return parts.join('\n\n');
 }
+
+/** Short lines for the leaderboard / weekly recap: the top title and each achievement. */
+export function awardLines(m: Pick<Member, 'firstName'>, ids: string[]): string[] {
+  const name = displayName(m);
+  const top = Math.max(0, ...ids.map((id) => titleLevelOf(id) ?? 0));
+  const lines: string[] = [];
+  if (top) lines.push(`🎉 ${name} — звание ${titleAt(top)!.emoji} ${titleAt(top)!.name}`);
+  for (const a of ACHIEVEMENTS.filter((a) => ids.includes(a.id))) lines.push(`🏅 ${name} — ${a.emoji} ${a.name}`);
+  return lines;
+}
+
+export function groupAwardLine(id: string): string {
+  const award = GROUP_AWARDS.find((a) => a.id === id)!;
+  return `${award.emoji} Группа получает «${award.name}»!`;
+}
+
+/** Title emoji in front of a name in the leaderboard. */
+const titleMark = (m: Member) => (m.title ? `${titleAt(m.title)!.emoji} ` : '');
 
 export interface LeaderboardInput {
   date: string;
@@ -71,7 +114,8 @@ export interface LeaderboardInput {
   newcomerDays: number;
   /** Sessions the group did that day and the maximum possible. */
   group: { done: number; possible: number };
-  milestones: string[];
+  /** Titles and achievements of the day. */
+  awardLines: string[];
   weekly?: string;
 }
 
@@ -94,7 +138,7 @@ export function renderLeaderboard(input: LeaderboardInput): string {
     ranked.forEach((m, i) => {
       const warning = m.missedInRow > 0 ? `  ⚠️ ${days(m.missedInRow)}` : '';
       lines.push(
-        `${i + 1}. ${displayName(m)}  ${percent(regularity(m))}  ${m.sessions}  🔥${m.currentStreak}  ${strip(m.recent)}${warning}`,
+        `${i + 1}. ${titleMark(m)}${displayName(m)}  ${percent(regularity(m))}  ${m.sessions}  🔥${m.currentStreak}  ${strip(m.recent)}${warning}`,
       );
     });
   }
@@ -114,7 +158,7 @@ export function renderLeaderboard(input: LeaderboardInput): string {
       .join(', ');
     lines.push('', `🏕 На паузе: ${list}`);
   }
-  if (input.milestones.length > 0) lines.push('', ...input.milestones);
+  if (input.awardLines.length > 0) lines.push('', ...input.awardLines);
 
   lines.push('', '● обе практики · ◐ одна · ○ нет · · пауза');
   return lines.join('\n');
@@ -152,6 +196,13 @@ export function renderWeekly(members: Member[]): string {
   if (best) lines.push(`Лучший день: ${humanDate(best[0])} (${best[1]})`);
   if (perfect.length) lines.push(`💎 Идеальная неделя (14/14): ${perfect.map(({ m }) => displayName(m)).join(', ')}`);
   if (everyDay.length) lines.push(`✨ Практика каждый день: ${everyDay.map(({ m }) => displayName(m)).join(', ')}`);
+
+  const weekDates = new Set([...byDate.keys()]);
+  const earned = tracked.flatMap((m) => {
+    const ids = Object.entries(m.awards ?? {}).filter(([, a]) => weekDates.has(a.date)).map(([id]) => id);
+    return ids.length ? awardLines(m, ids) : [];
+  });
+  if (earned.length) lines.push('', '🏅 <b>Новые звания и достижения за неделю</b>', ...earned);
   return lines.join('\n');
 }
 
@@ -176,18 +227,47 @@ export function renderReminder(targets: Member[], missLimit: number): string {
 }
 
 export interface MeInput {
+  /** Aggregates with today's sessions already counted. */
   member: Member;
-  today: Partial<Record<Slot, Minutes | null>>;
+  /** Current practice day. */
+  date: string;
+  today: DaySessions;
   usualTimes: Partial<Record<Slot, string>>;
   daysWithUs: number;
 }
 
+const hours = (minutes: number) =>
+  `${minutes < 600 ? String(Number((minutes / 60).toFixed(1))).replace('.', ',') : Math.round(minutes / 60)} ч`;
+
+/** Current title, the next one and how far it is. */
+function titleProgress(m: Member) {
+  const level = m.title ?? 0;
+  const current = titleAt(level);
+  const next = titleAt(level + 1);
+  const left = next ? Math.max(next.hours * 60 - m.minutes, 0) : 0;
+  return { current, next, left };
+}
+
+/** "🎒 Старый студент · 112 ч · до 🧡 Монаха 88 ч · 🏅 4 из 19" */
+function titleLine(m: Member): string {
+  const { current, next, left } = titleProgress(m);
+  return [
+    current ? `${current.emoji} ${current.name}` : 'Звания пока нет',
+    hours(m.minutes),
+    next ? `до ${next.emoji} ${next.genitive} ${hours(left)}` : 'высшее звание',
+    `🏅 ${achievementCount(m.awards)} из ${ACHIEVEMENTS.length}`,
+  ].join(' · ');
+}
+
+const sessionMark = (today: DaySessions, slot: Slot) => (today[slot] ? `✅ ${today[slot]!.minutes} мин` : '—');
+
 export function renderMe({ member: m, today, usualTimes, daysWithUs }: MeInput): string {
   const recentDone = recentSessions(m);
   const recentPossible = 2 * m.recent.filter((d) => d.status === 'active').length;
-  const mark = (slot: Slot) => (today[slot] ? `✅ ${today[slot]} мин` : '—');
+  const mark = (slot: Slot) => sessionMark(today, slot);
   const lines = [
     `🧘 <b>${displayName(m)}</b> · с нами ${days(daysWithUs)}`,
+    titleLine(m),
     recentPossible > 0
       ? `📈 Регулярность за 30 дней: ${percent(regularity(m))} (${recentDone} из ${recentPossible} сессий)`
       : '📈 Регулярность появится после первого закрытого дня (в 04:00)',
@@ -214,9 +294,6 @@ export interface DetailedMeInput extends MeInput {
   durations: Record<Minutes, number>;
 }
 
-const hours = (minutes: number) =>
-  `${minutes < 600 ? String(Number((minutes / 60).toFixed(1))).replace('.', ',') : Math.round(minutes / 60)} ч`;
-
 /** Regularity of a window as "85% (51 из 60)". */
 function ratio(recent: DayEntry[]): string | null {
   const possible = 2 * recent.filter((d) => d.status === 'active').length;
@@ -227,18 +304,28 @@ function ratio(recent: DayEntry[]): string | null {
 
 /** Full personal stats for the private chat. */
 export function renderMeDetailed(input: DetailedMeInput): string {
-  const { member: m, today, usualTimes, daysWithUs, chatTitle, rank, newcomerDaysLeft, durations } = input;
-  const mark = (slot: Slot) => (today[slot] ? `✅ ${today[slot]} мин` : '—');
+  const { member: m, date, today, usualTimes, daysWithUs, chatTitle, rank, newcomerDaysLeft, durations } = input;
+  const mark = (slot: Slot) => sessionMark(today, slot);
   const month = ratio(m.recent);
   const week = ratio(m.recent.slice(-7));
+  const { current, next, left } = titleProgress(m);
 
   const lines = [
     `🧘 <b>${displayName(m)}</b> · ${escapeHtml(chatTitle)}`,
     `С нами ${days(daysWithUs)}, с ${dayMonth(m.joinedDate)}`,
     '',
+    current ? `${current.emoji} <b>${current.name}</b> · ${hours(m.minutes)}` : `Звания пока нет · ${hours(m.minutes)}`,
+  ];
+  if (next) {
+    const from = current?.hours ?? 0;
+    const filled = Math.min(10, Math.floor((10 * (m.minutes / 60 - from)) / (next.hours - from)));
+    lines.push(`До ${next.emoji} ${next.genitive}: ${'▰'.repeat(filled)}${'▱'.repeat(10 - filled)} ${hours(left)}`);
+  }
+  lines.push(
+    '',
     '📈 <b>Регулярность</b>',
     month ? `За 30 дней: ${month} · за 7 дней: ${week}` : 'Появится после первого закрытого дня (в 04:00)',
-  ];
+  );
   if (rank) lines.push(`🏆 Место в таблице: ${rank.place} из ${rank.total}`);
   else if (m.status === 'paused') lines.push(`🏕 На паузе${m.pauseUntil ? ` до ${shortDate(m.pauseUntil)}` : ''}`);
   else lines.push(`🌱 В таблицу попадёшь через ${days(newcomerDaysLeft)}`);
@@ -267,6 +354,47 @@ export function renderMeDetailed(input: DetailedMeInput): string {
     lines.push('', '🗓 <b>Последние 30 дней</b>', ...calendar.map((row) => `<code>${row}</code>`));
     lines.push('● обе · ◐ одна · ○ нет · · пауза');
   }
+
+  lines.push('', ...achievementsList(m, { ...m, date, removedOn: m.removedOn }));
+  return lines.join('\n');
+}
+
+/** Earned achievements with dates, then locked ones with conditions and progress; secrets hidden. */
+function achievementsList(m: Member, state: AwardState): string[] {
+  const awards = m.awards ?? {};
+  const earned = ACHIEVEMENTS.filter((a) => awards[a.id]);
+  const locked = ACHIEVEMENTS.filter((a) => !awards[a.id]);
+  return [
+    `🏅 <b>Достижения: ${earned.length} из ${ACHIEVEMENTS.length}</b>`,
+    ...earned.map((a) => `✅ ${a.emoji} ${a.name} · ${dayMonth(awards[a.id].date)}`),
+    ...locked.map((a) => {
+      if (a.secret) return '❓ Секретное';
+      const progress = a.progress ? ` (${a.progress(state)})` : '';
+      return `🔒 ${a.emoji} ${a.name} — ${a.condition}${progress}`;
+    }),
+  ];
+}
+
+/** One-time post introducing titles: everyone with their title, by hours. */
+export function renderTitlesAnnouncement(members: Member[], botUsername: string): string {
+  const visible = members.filter((m) => m.status !== 'removed').sort((a, b) => b.minutes - a.minutes);
+  const titled = visible.filter((m) => m.title);
+  const untitled = visible.filter((m) => !m.title && m.minutes > 0);
+  const first = TITLES[0];
+  const lines = [
+    '🏅 <b>Раздача званий</b>',
+    'Теперь за часы практики даются звания, а за особые усилия — достижения.',
+    '',
+  ];
+  if (titled.length) {
+    lines.push(...titled.map((m) => `${titleAt(m.title!)!.emoji} ${displayName(m)} — ${titleAt(m.title!)!.name} · ${hours(m.minutes)}`));
+  } else {
+    lines.push(`Званий пока ни у кого нет. Первое — ${first.emoji} ${first.name} — за ${hoursText(first.hours)} практики.`);
+  }
+  if (untitled.length) {
+    lines.push('', `До звания ${first.emoji} ${first.name}: ${untitled.map((m) => `${displayName(m)} (${hours(m.minutes)})`).join(', ')}`);
+  }
+  lines.push('', `Свои достижения и прогресс — /me в личке у @${botUsername}`);
   return lines.join('\n');
 }
 
@@ -294,7 +422,8 @@ const RULES = `🪷 <b>Как это работает</b>
 • Опросы открыты до 04:00 следующего дня.
 • В 21:30 бот напоминает тем, у кого сегодня ещё ни одной сессии.
 • Регулярность — доля сделанных сессий (утро + вечер) за последние 30 дней. По ней строится таблица.
-• Три дня подряд без практики — бот убирает из чата. Вернуться можно в любой момент, статистика сохраняется.`;
+• Три дня подряд без практики — бот убирает из чата. Вернуться можно в любой момент, статистика сохраняется.
+• Звания растут с часами практики, достижения дают один раз за особые усилия. Поздравление приходит сразу после голоса; своё звание, прогресс и все достижения — в /me в личке у бота.`;
 
 export const HELP_TEXT = `${RULES}
 

@@ -6,6 +6,7 @@ import { getChat, listChats, updateChat } from '../services/chats.js';
 import { saveCheckin } from '../services/checkins.js';
 import { buildLeaderboard, recomputeMember, sendExport } from '../services/jobs.js';
 import { ensureMember, getMember, updateMember } from '../services/members.js';
+import { evaluateAwards } from '../services/grants.js';
 import { personalStats } from '../services/personal.js';
 import { createProgressMessage, scheduleProgressUpdate } from '../services/progress.js';
 import { addDays, isValidDate, isValidTime, practiceDate } from '../time.js';
@@ -158,8 +159,12 @@ const fix = groupCommand(async (ctx, settings) => {
     },
     'admin',
   );
-  if (date <= settings.lastClosedDate) await recomputeMember(chatId, target.userId);
-  else scheduleProgressUpdate(ctx.api, chatId);
+  if (date <= settings.lastClosedDate) {
+    await recomputeMember(chatId, target.userId);
+  } else {
+    scheduleProgressUpdate(ctx.api, chatId);
+    await evaluateAwards(ctx.api, chatId, settings, target.userId);
+  }
   await replyTemp(ctx, `✏️ Исправлено: ${target.firstName}, ${date}, ${slot} → ${value}`);
 }, true);
 

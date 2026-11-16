@@ -19,7 +19,9 @@ tap and turns honest records into gentle social support.
 - **Leaderboard** sorted by 30-day regularity (sessions done / sessions possible), with total
   sessions, streak and a 7-day strip. Newcomers and paused members are listed separately.
 - **Live progress** in a pinned message: `☀️ Сегодня: утро 18/28 · вечер 5/28`.
-- **Weekly recap** on Mondays, milestones (7/30/100-day streaks, every 100 sessions and hours).
+- **Weekly recap** on Mondays.
+- **Titles and achievements:** 15 titles by total hours (🌱 Искатель → ☸️ Будда) and 19 one-time
+  achievements for real effort, congratulated right after the vote — see [docs/AWARDS.md](docs/AWARDS.md).
 - **Accountability:** after 3 days in a row without practice the bot removes the member and
   DMs them a personal link to come back any time; stats are kept.
 - **Pause** for retreats, illness or travel: `/pause 10 ретрит` freezes the streak.
@@ -75,15 +77,17 @@ src/
   index.ts            entry point
   config.ts           env and defaults
   db.ts               Firestore collections
-  stats.ts            pure aggregation (streaks, regularity, milestones)
+  stats.ts            pure aggregation (streaks, regularity, achievement counters)
+  awards.ts           titles and achievements, declarative
   render.ts           all message texts
   time.ts             practice-day math (day ends at 04:00)
   handlers/           commands and Telegram events
   services/           check-ins, members, jobs, scheduler
-scripts/recompute.ts  rebuild aggregates from raw data
+scripts/recompute.ts  rebuild aggregates and grant awards retroactively
 ```
 
 ## Docs
 
 - [Setup and deployment](docs/SETUP.md)
 - [Specification](docs/SPEC.md)
+- [Titles and achievements](docs/AWARDS.md)

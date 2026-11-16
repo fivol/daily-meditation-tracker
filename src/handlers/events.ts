@@ -4,6 +4,7 @@ import { log } from '../logger.js';
 import { renderWelcome } from '../render.js';
 import { getChat, migrateChat } from '../services/chats.js';
 import { saveCheckin } from '../services/checkins.js';
+import { evaluateAwards } from '../services/grants.js';
 import { ensureMember, markJoined, markLeft, touchMember } from '../services/members.js';
 import { createProgressMessage, scheduleProgressUpdate } from '../services/progress.js';
 import { practiceDate } from '../time.js';
@@ -31,6 +32,8 @@ export function registerEvents(bot: Bot): void {
     await saveCheckin(poll.chatId, { userId: user.id, date: poll.date, slot: poll.slot, status, minutes }, 'poll');
     log.info(`Chat ${poll.chatId}: vote ${user.id} ${poll.date} ${poll.slot} → ${status}${minutes ? ` ${minutes}m` : ''}`);
     scheduleProgressUpdate(ctx.api, poll.chatId);
+    const pollMessage = (await days(poll.chatId).doc(poll.date).get()).data()?.polls?.[poll.slot]?.messageId;
+    await evaluateAwards(ctx.api, poll.chatId, settings, user.id, { replyTo: pollMessage });
   });
 
   // Telegram upgraded the group to a supergroup: the chat id changes, the data follows it.

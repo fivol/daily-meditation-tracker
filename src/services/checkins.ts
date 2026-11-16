@@ -15,7 +15,9 @@ export async function saveCheckin(
   const now = new Date().toISOString();
   await db.runTransaction(async (tx) => {
     const existing = (await tx.get(ref)).data();
-    tx.set(ref, { ...entry, source, firstAt: existing?.firstAt ?? now, updatedAt: now });
+    // Changing a vote in Telegram goes through a retraction, so "skipped" is remembered for good.
+    const wasSkipped = Boolean(existing?.wasSkipped) || entry.status === 'skipped';
+    tx.set(ref, { ...entry, source, firstAt: existing?.firstAt ?? now, updatedAt: now, wasSkipped });
   });
 }
 
@@ -43,7 +45,8 @@ export function doneSessions(list: Checkin[]): Map<string, DaySessions> {
   for (const c of list) {
     if (c.status !== 'done' || !c.minutes) continue;
     const key = sessionKey(c.date, c.userId);
-    result.set(key, { ...result.get(key), [c.slot]: c.minutes });
+    const session = { minutes: c.minutes, at: c.updatedAt, source: c.source, rescued: Boolean(c.wasSkipped) };
+    result.set(key, { ...result.get(key), [c.slot]: session });
   }
   return result;
 }

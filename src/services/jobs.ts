@@ -4,7 +4,8 @@ import { env } from '../config.js';
 import { chats, checkins, days, db, members, polls, users } from '../db.js';
 import { log } from '../logger.js';
 import {
-  milestoneText,
+  awardLines,
+  groupAwardLine,
   pollQuestion,
   POLL_OPTIONS,
   renderLeaderboard,
@@ -13,9 +14,11 @@ import {
   renderRemovalDm,
   renderWeekly,
 } from '../render.js';
-import { applyDay, emptyStats, reachedMilestones } from '../stats.js';
+import { earnedAwards, earnedGroupAwards, maxTitle, nextNoLossRun } from '../awards.js';
+import { applyDay, baseStatusOf, emptyStats } from '../stats.js';
 import { addDays, isMonday } from '../time.js';
-import type { ChatSettings, DayStatus, Member, Slot } from '../types.js';
+import type { AwardRecord, ChatSettings, DayStatus, Member, Slot } from '../types.js';
+import { getChat } from './chats.js';
 import { checkinsOfDay, checkinsOfMember, doneSessions, sessionKey } from './checkins.js';
 import { getMember, listMembers, updateMember } from './members.js';
 import { updateProgress } from './progress.js';
@@ -42,7 +45,7 @@ export async function buildLeaderboard(
     members: all,
     newcomerDays: settings.newcomerDays,
     group,
-    milestones: daySnap.data()?.milestones ?? [],
+    awardLines: daySnap.data()?.awardLines ?? [],
     weekly: withWeekly ? renderWeekly(all) : undefined,
   });
 }
@@ -104,14 +107,36 @@ export async function runReminder(api: Api, chatId: number, settings: ChatSettin
   await api.sendMessage(chatId, renderReminder(targets, settings.missLimit), { parse_mode: 'HTML' });
 }
 
-/** How a member takes part in a day before their check-ins are considered. */
-function baseStatus(m: Member, date: string): DayStatus {
-  if (m.status === 'removed') return 'absent';
-  if (m.status === 'paused' && (!m.pauseUntil || m.pauseUntil >= date)) return 'paused';
-  return 'active';
+/**
+ * Final awards of a member after a closed day: pending awards become permanent, awards the day
+ * qualifies for but that weren't granted yet (e.g. "Кремень") are added silently. Returns Firestore
+ * field updates, the resulting map and the ids dated with this day.
+ */
+function closeAwards(m: Member, earned: Set<string>, date: string) {
+  const awards: Record<string, AwardRecord> = {};
+  const updates: Record<string, unknown> = {};
+  const dropped: AwardRecord[] = [];
+  for (const [id, a] of Object.entries(m.awards ?? {})) {
+    if (!a.pending || a.date > date) {
+      awards[id] = a;
+    } else if (earned.has(id)) {
+      awards[id] = { ...a, pending: false };
+      updates[id] = { pending: false };
+    } else {
+      dropped.push(a);
+      updates[id] = FieldValue.delete();
+    }
+  }
+  for (const id of earned) {
+    if (awards[id] || id in updates) continue;
+    awards[id] = { date };
+    updates[id] = { date };
+  }
+  const ofDay = Object.entries(awards).filter(([, a]) => a.date === date).map(([id]) => id);
+  return { awards, updates, dropped, ofDay };
 }
 
-/** 04:00 — finalize a day: stop polls, update aggregates, apply the removal rule. */
+/** 04:00 — finalize a day: stop polls, update aggregates and awards, apply the removal rule. */
 export async function closeDay(api: Api, chatId: number, settings: ChatSettings, date: string) {
   const dayRef = days(chatId).doc(date);
   const day = (await dayRef.get()).data();
@@ -123,35 +148,65 @@ export async function closeDay(api: Api, chatId: number, settings: ChatSettings,
   const [all, list] = await Promise.all([listMembers(chatId), checkinsOfDay(chatId, date)]);
   const sessions = doneSessions(list);
   const statuses: Record<string, DayStatus> = {};
-  const milestones: string[] = [];
+  const lines: string[] = [];
   const toRemove: Member[] = [];
+  const dropped: AwardRecord[] = [];
+  const activeSessions: number[] = [];
+  let totalMinutes = 0;
   const batch = db.batch();
 
   for (const m of all) {
     if (m.joinedDate > date) continue;
-    const base = baseStatus(m, date);
+    const base = baseStatusOf(m, date);
     statuses[m.userId] = base;
-    const after = applyDay(m, date, base, sessions.get(sessionKey(date, m.userId)) ?? {});
-    milestones.push(...reachedMilestones(m, after).map((ms) => milestoneText(m, ms)));
+    const after = applyDay(m, date, base, sessions.get(sessionKey(date, m.userId)) ?? {}, settings);
+    const entry = after.recent.at(-1)!;
+    if (entry.status === 'active') activeSessions.push(entry.sessions);
+    totalMinutes += after.minutes;
 
-    const patch: Record<string, unknown> = { ...after };
+    const earned = earnedAwards({ ...after, date, removedOn: m.removedOn }, true);
+    const final = closeAwards(m, earned, date);
+    dropped.push(...final.dropped);
+    lines.push(...awardLines(m, final.ofDay));
+
+    const patch: Record<string, unknown> = {
+      ...after,
+      awards: final.updates,
+      title: maxTitle(final.awards) || FieldValue.delete(),
+    };
     if (m.status === 'paused' && m.pauseUntil && m.pauseUntil <= date) {
       Object.assign(patch, { status: 'active', pauseUntil: FieldValue.delete(), pauseReason: FieldValue.delete() });
     }
     if (m.status === 'active' && after.missedInRow >= settings.missLimit) toRemove.push(m);
-    batch.set(members(chatId).doc(String(m.userId)), patch, { merge: true });
+    batch.set(db.doc(members(chatId).doc(String(m.userId)).path), patch, { merge: true });
   }
-  batch.set(dayRef, { statuses, milestones }, { merge: true });
-  // Same batch: the day is applied to the stats exactly once, even if the bot dies right here.
-  batch.set(chats().doc(String(chatId)), { lastClosedDate: date }, { merge: true });
-  await batch.commit();
 
+  const noLossRun = nextNoLossRun(settings.noLossRun ?? 0, activeSessions);
+  const groupNew = earnedGroupAwards({ activeSessions, noLossRun, totalMinutes }).filter((id) => !settings.awards?.[id]);
+  lines.push(...groupNew.map(groupAwardLine));
+
+  batch.set(dayRef, { statuses, awardLines: lines }, { merge: true });
+  // Same batch: the day is applied to the stats exactly once, even if the bot dies right here.
+  batch.set(
+    chats().doc(String(chatId)),
+    { lastClosedDate: date, noLossRun, awards: Object.fromEntries(groupNew.map((id) => [id, date])) },
+    { merge: true },
+  );
+  await batch.commit();
+  if (groupNew.length) log.info(`Chat ${chatId}: group earned ${groupNew.join(', ')}`);
+
+  // Pending awards the final day no longer supports: their congratulations go too.
+  for (const a of dropped) {
+    if (a.messageId) await api.deleteMessage(chatId, a.messageId).catch(() => undefined);
+  }
   for (const m of toRemove) {
-    await removeMember(api, chatId, m).catch((err) => log.error(`Chat ${chatId}: removal of ${m.userId} failed`, err));
+    await removeMember(api, chatId, m, date).catch((err) =>
+      log.error(`Chat ${chatId}: removal of ${m.userId} failed`, err),
+    );
   }
 }
 
-async function removeMember(api: Api, chatId: number, m: Member) {
+async function removeMember(api: Api, chatId: number, m: Member, date: string) {
   const current = await api.getChatMember(chatId, m.userId);
   if (current.status === 'creator' || current.status === 'administrator') {
     log.info(`Chat ${chatId}: ${m.userId} missed ${m.missedInRow + 1} days but is an admin, not removed`);
@@ -162,7 +217,7 @@ async function removeMember(api: Api, chatId: number, m: Member) {
     // Unbanning exists only in supergroups; in basic groups a ban is already a plain kick.
     await api.unbanChatMember(chatId, m.userId, { only_if_banned: true }).catch(() => undefined);
   }
-  await updateMember(chatId, m.userId, { status: 'removed' });
+  await updateMember(chatId, m.userId, { status: 'removed', removedOn: date });
   log.info(`Chat ${chatId}: removed ${m.userId} (${m.firstName}) after ${m.missedInRow + 1} missed days`);
   await api.sendMessage(chatId, renderRemoval(m), silentHtml);
 
@@ -175,19 +230,69 @@ async function removeMember(api: Api, chatId: number, m: Member) {
   await api.sendMessage(m.userId, renderRemovalDm(title, link.invite_link), { parse_mode: 'HTML' });
 }
 
-/** Rebuilds a member's aggregates from day snapshots and check-ins (after an admin fix). */
-export async function recomputeMember(chatId: number, userId: number): Promise<void> {
-  const daySnaps = await days(chatId).get();
-  const closed = daySnaps.docs
-    .map((doc) => ({ date: doc.id, status: doc.data().statuses?.[userId] }))
-    .filter((d): d is { date: string; status: DayStatus } => d.status !== undefined)
+/** Closed days with their snapshots, oldest first. */
+async function closedDays(chatId: number) {
+  const snap = await days(chatId).get();
+  return snap.docs
+    .map((doc) => ({ date: doc.id, statuses: doc.data().statuses }))
+    .filter((d): d is { date: string; statuses: Record<string, DayStatus> } => d.statuses !== undefined)
     .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
+ * Rebuilds a member's aggregates from day snapshots and check-ins (after an admin fix or for a
+ * migration) and grants, silently and dated when first met, any titles and achievements the
+ * history qualifies for. Granted awards are never taken away here.
+ */
+export async function recomputeMember(chatId: number, userId: number): Promise<void> {
+  const [settings, member, history] = await Promise.all([getChat(chatId), getMember(chatId, userId), closedDays(chatId)]);
+  if (!settings || !member) return;
+  const closed = history.filter((d) => d.statuses[userId] !== undefined);
   const sessions = doneSessions(await checkinsOfMember(chatId, userId, closed.map((d) => d.date)));
-  const stats = closed.reduce(
-    (acc, d) => applyDay(acc, d.date, d.status, sessions.get(sessionKey(d.date, userId)) ?? {}),
-    emptyStats(),
+
+  let stats = emptyStats();
+  const firstMet: Record<string, string> = {};
+  for (const d of closed) {
+    stats = applyDay(stats, d.date, d.statuses[userId], sessions.get(sessionKey(d.date, userId)) ?? {}, settings);
+    for (const id of earnedAwards({ ...stats, date: d.date, removedOn: member.removedOn }, true)) firstMet[id] ??= d.date;
+  }
+
+  const awards: Record<string, AwardRecord> = { ...member.awards };
+  const added = Object.entries(firstMet).filter(([id]) => !awards[id]);
+  for (const [id, date] of added) awards[id] = { date };
+  await db.doc(members(chatId).doc(String(userId)).path).set(
+    {
+      ...stats,
+      awards: Object.fromEntries(added.map(([id, date]) => [id, { date }])),
+      title: maxTitle(awards) || FieldValue.delete(),
+    },
+    { merge: true },
   );
-  if (await getMember(chatId, userId)) await updateMember(chatId, userId, stats);
+}
+
+/** Grants the group achievements the closed history qualifies for, silently, dated when first met. */
+export async function recomputeGroupAwards(chatId: number): Promise<void> {
+  const settings = await getChat(chatId);
+  if (!settings) return;
+  let noLossRun = 0;
+  let totalMinutes = 0;
+  const firstMet: Record<string, string> = {};
+  for (const d of await closedDays(chatId)) {
+    const list = (await checkinsOfDay(chatId, d.date)).filter((c) => c.status === 'done' && c.minutes);
+    const perUser = new Map<string, number>();
+    for (const c of list) {
+      perUser.set(String(c.userId), (perUser.get(String(c.userId)) ?? 0) + 1);
+      totalMinutes += c.minutes!;
+    }
+    // Active that day: not paused or absent, or practiced anyway.
+    const activeSessions = Object.entries(d.statuses)
+      .filter(([userId, status]) => status === 'active' || perUser.has(userId))
+      .map(([userId]) => perUser.get(userId) ?? 0);
+    noLossRun = nextNoLossRun(noLossRun, activeSessions);
+    for (const id of earnedGroupAwards({ activeSessions, noLossRun, totalMinutes })) firstMet[id] ??= d.date;
+  }
+  const added = Object.entries(firstMet).filter(([id]) => !settings.awards?.[id]);
+  await chats().doc(String(chatId)).set({ noLossRun, awards: Object.fromEntries(added) }, { merge: true });
 }
 
 const csvCell = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
