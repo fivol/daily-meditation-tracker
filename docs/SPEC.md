@@ -169,6 +169,8 @@ Users without a `@username` are mentioned via a `tg://user?id=` text mention.
   - If they never started the bot, any member can share the group link.
 - On return: all stats are kept, the streak starts from 0, days outside the chat don't count
   against regularity.
+- A newcomer gets a short welcome and, right below it, the day's latest poll forwarded (a
+  forwarded poll is the same poll, so a vote there counts).
 - Chat admins can't be removed by a bot — for them the rule is warning-only.
 - New members: counting starts on the day they join.
 

@@ -1,5 +1,5 @@
 import type { Bot } from 'grammy';
-import { polls } from '../db.js';
+import { days, polls } from '../db.js';
 import { log } from '../logger.js';
 import { renderWelcome } from '../render.js';
 import { getChat, migrateChat } from '../services/chats.js';
@@ -58,11 +58,20 @@ export function registerEvents(bot: Bot): void {
     const wasIn = IN_CHAT.includes(before.status);
     const isIn = IN_CHAT.includes(after.status);
     if (!wasIn && isIn) {
-      const member = await markJoined(chat.id, after.user, practiceDate(settings));
+      const today = practiceDate(settings);
+      const member = await markJoined(chat.id, after.user, today);
       await ctx.api.sendMessage(chat.id, renderWelcome(member), {
         ...html,
         disable_notification: true,
       });
+      // The newcomer can check in right away: a forwarded poll is the same poll, votes count.
+      const dayPolls = (await days(chat.id).doc(today).get()).data()?.polls;
+      const latest = dayPolls?.evening ?? dayPolls?.morning;
+      if (latest) {
+        await ctx.api
+          .forwardMessage(chat.id, chat.id, latest.messageId, { disable_notification: true })
+          .catch((err) => log.error(`Chat ${chat.id}: forwarding the poll to a newcomer failed`, err));
+      }
     } else if (wasIn && !isIn) {
       await markLeft(chat.id, after.user.id);
     }
