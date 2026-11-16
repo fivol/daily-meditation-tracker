@@ -36,6 +36,15 @@ export function registerEvents(bot: Bot): void {
     await createProgressMessage(ctx.api, newId);
   });
 
+  // "Bot pinned …" notices only clutter the chat.
+  bot.on('message:pinned_message', async (ctx) => {
+    if (ctx.from?.id !== ctx.me.id) return;
+    await ctx
+      .deleteMessage()
+      .then(() => console.log(`Deleted pin notice ${ctx.msg.message_id} in ${ctx.chat.id}`))
+      .catch((err) => console.error('Deleting a pin notice failed', err));
+  });
+
   // Joins and leaves (requires the bot to be an admin to receive these updates).
   bot.on('chat_member', async (ctx) => {
     const { old_chat_member: before, new_chat_member: after, chat } = ctx.chatMember;
