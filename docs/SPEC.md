@@ -61,6 +61,8 @@ Why these times:
   a `poll_answer` with empty `option_ids`; the bot revokes the check-in. No extra commands, no
   messages in the chat.
   - Typical case: voted "не получилось" in the morning, sat at noon → retract, vote "1 час".
+- Each poll is **pinned** (silently) when posted, so chat messages don't bury it, and unpinned
+  at day close. After 16:00 both polls of the day are pinned; the evening one is on top.
 - The poll is open from posting until **day close (04:00)**; then the bot calls `stopPoll`.
   Votes for a day that has ended are ignored, so nothing can slip in while the day is being closed.
   After that, only an admin can fix a record (`/fix`).

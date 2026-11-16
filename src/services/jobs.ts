@@ -54,6 +54,10 @@ async function sendPoll(api: Api, chatId: number, date: string, slot: Slot, noti
     POLL_OPTIONS.map((o) => ({ text: o.text })),
     { is_anonymous: false, disable_notification: !notify },
   );
+  // Pinned so the poll doesn't get lost in the chat; unpinned when the day closes.
+  await api
+    .pinChatMessage(chatId, message.message_id, { disable_notification: true })
+    .catch((err) => console.error('Pinning the poll failed', err));
   await polls().doc(message.poll.id).set({
     chatId,
     date,
@@ -108,6 +112,7 @@ export async function closeDay(api: Api, chatId: number, settings: ChatSettings,
   const day = (await dayRef.get()).data();
   for (const poll of Object.values(day?.polls ?? {})) {
     await api.stopPoll(chatId, poll.messageId).catch(() => undefined); // already stopped or deleted
+    await api.unpinChatMessage(chatId, poll.messageId).catch(() => undefined);
   }
 
   const [all, list] = await Promise.all([listMembers(chatId), checkinsOfDay(chatId, date)]);
