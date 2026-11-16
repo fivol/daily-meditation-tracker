@@ -1,13 +1,13 @@
 import type { Bot, Context } from 'grammy';
 import { DEFAULT_SETTINGS } from '../config.js';
 import { users } from '../db.js';
-import { HELP_TEXT, renderMe, renderProgress } from '../render.js';
+import { HELP_TEXT, renderMe } from '../render.js';
 import { getChat, updateChat } from '../services/chats.js';
 import { checkinsOfMember, saveCheckin } from '../services/checkins.js';
 import { buildLeaderboard, recomputeMember, sendExport } from '../services/jobs.js';
 import { applyDay, type DaySessions } from '../stats.js';
 import { ensureMember, getMember, updateMember } from '../services/members.js';
-import { scheduleProgressUpdate } from '../services/progress.js';
+import { createProgressMessage, scheduleProgressUpdate } from '../services/progress.js';
 import { addDays, dateRange, isValidDate, isValidTime, practiceDate, usualTime } from '../time.js';
 import type { ChatSettings, Minutes, Schedule, Slot } from '../types.js';
 import {
@@ -57,14 +57,9 @@ const setup: Handler = async (ctx) => {
     startDate: practiceDate(DEFAULT_SETTINGS),
     lastClosedDate: addDays(practiceDate(DEFAULT_SETTINGS), -1),
   };
-  const today = practiceDate(settings);
-  const progress = await ctx.api.sendMessage(chatId, renderProgress(today, { morning: 0, evening: 0 }, 0), {
-    disable_notification: true,
-  });
-  await ctx.api.pinChatMessage(chatId, progress.message_id, { disable_notification: true }).catch(() => undefined);
-  await updateChat(chatId, { ...settings, progressMessageId: progress.message_id });
-  if (ctx.from) await ensureMember(chatId, ctx.from, today);
-  scheduleProgressUpdate(ctx.api, chatId);
+  await updateChat(chatId, settings);
+  if (ctx.from) await ensureMember(chatId, ctx.from, practiceDate(settings));
+  await createProgressMessage(ctx.api, chatId);
   await replyTemp(
     ctx,
     existing

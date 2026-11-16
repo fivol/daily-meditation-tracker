@@ -65,7 +65,7 @@ async function sendPoll(api: Api, chatId: number, date: string, slot: Slot, noti
     .set({ polls: { [slot]: { messageId: message.message_id, pollId: message.poll.id } } }, { merge: true });
 }
 
-/** 05:00 — yesterday's leaderboard (+ weekly recap on Mondays) and the morning poll. */
+/** Start of the day (04:00, right after the close) — yesterday's leaderboard (+ weekly recap on Mondays) and the morning poll. */
 export async function runMorning(api: Api, chatId: number, settings: ChatSettings, date: string) {
   const yesterday = addDays(date, -1);
   const monday = isMonday(date);
@@ -74,7 +74,8 @@ export async function runMorning(api: Api, chatId: number, settings: ChatSetting
     await api.sendMessage(chatId, text, silentHtml);
   }
   await sendPoll(api, chatId, date, 'morning', false);
-  await updateProgress(api, chatId);
+  // A broken pinned message must not make the job retry and re-post the poll.
+  await updateProgress(api, chatId).catch((err) => console.error('Progress update failed', err));
   if (monday && env.ownerId) {
     await sendExport(api, chatId, env.ownerId).catch((err) => console.error('Weekly export failed', err));
   }
@@ -144,7 +145,8 @@ async function removeMember(api: Api, chatId: number, m: Member) {
   if (current.status === 'creator' || current.status === 'administrator') return; // warning-only for admins
   if (current.status !== 'left' && current.status !== 'kicked') {
     await api.banChatMember(chatId, m.userId);
-    await api.unbanChatMember(chatId, m.userId, { only_if_banned: true });
+    // Unbanning exists only in supergroups; in basic groups a ban is already a plain kick.
+    await api.unbanChatMember(chatId, m.userId, { only_if_banned: true }).catch(() => undefined);
   }
   await updateMember(chatId, m.userId, { status: 'removed' });
   await api.sendMessage(chatId, renderRemoval(m), silentHtml);

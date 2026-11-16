@@ -1,10 +1,10 @@
 import type { Bot } from 'grammy';
 import { polls } from '../db.js';
 import { renderWelcome } from '../render.js';
-import { getChat } from '../services/chats.js';
+import { getChat, migrateChat } from '../services/chats.js';
 import { saveCheckin } from '../services/checkins.js';
 import { ensureMember, markJoined, markLeft, touchMember } from '../services/members.js';
-import { scheduleProgressUpdate } from '../services/progress.js';
+import { createProgressMessage, scheduleProgressUpdate } from '../services/progress.js';
 import { practiceDate } from '../time.js';
 import { html } from './helpers.js';
 
@@ -18,13 +18,22 @@ export function registerEvents(bot: Bot): void {
     const poll = (await polls().doc(poll_id).get()).data();
     if (!poll) return;
     const settings = await getChat(poll.chatId);
-    if (!settings || poll.date <= settings.lastClosedDate) return; // the day is already final
+    // Only today's polls count: after 04:00 yesterday is being (or has been) closed.
+    if (!settings || poll.date !== practiceDate(settings)) return;
 
     await ensureMember(poll.chatId, user, practiceDate(settings));
     const minutes = option_ids.length ? (poll.optionMinutes[option_ids[0]] ?? null) : null;
     const status = !option_ids.length ? 'revoked' : minutes ? 'done' : 'skipped';
     await saveCheckin(poll.chatId, { userId: user.id, date: poll.date, slot: poll.slot, status, minutes }, 'poll');
     scheduleProgressUpdate(ctx.api, poll.chatId);
+  });
+
+  // Telegram upgraded the group to a supergroup: the chat id changes, the data follows it.
+  bot.on('message:migrate_to_chat_id', async (ctx) => {
+    const newId = ctx.msg.migrate_to_chat_id;
+    if (!(await migrateChat(ctx.chat.id, newId))) return;
+    console.log(`Chat ${ctx.chat.id} migrated to ${newId}`);
+    await createProgressMessage(ctx.api, newId);
   });
 
   // Joins and leaves (requires the bot to be an admin to receive these updates).

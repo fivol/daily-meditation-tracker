@@ -15,7 +15,7 @@ export const env = {
 export const DEFAULT_SETTINGS: Omit<ChatSettings, 'startDate'> = {
   timezone: 'Europe/Moscow',
   dayBoundaryHour: 4,
-  schedule: { morning: '05:00', evening: '16:00', reminder: '21:30' },
+  schedule: { morning: '04:00', evening: '16:00', reminder: '21:30' },
   missLimit: 3,
   maxPauseDays: 21,
   newcomerDays: 7,

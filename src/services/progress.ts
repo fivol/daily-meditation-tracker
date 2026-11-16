@@ -2,7 +2,7 @@ import type { Api } from 'grammy';
 import { renderProgress } from '../render.js';
 import { practiceDate } from '../time.js';
 import { SLOTS, type Slot } from '../types.js';
-import { getChat } from './chats.js';
+import { getChat, updateChat } from './chats.js';
 import { checkinsOfDay } from './checkins.js';
 import { listMembers } from './members.js';
 
@@ -19,6 +19,17 @@ export function scheduleProgressUpdate(api: Api, chatId: number): void {
       updateProgress(api, chatId).catch((err) => console.error('Progress update failed', err));
     }, DEBOUNCE_MS),
   );
+}
+
+/** Posts and pins a fresh "today" message (on /setup and after a group upgrade). */
+export async function createProgressMessage(api: Api, chatId: number): Promise<void> {
+  const settings = await getChat(chatId);
+  if (!settings) return;
+  const empty = renderProgress(practiceDate(settings), { morning: 0, evening: 0 }, 0);
+  const message = await api.sendMessage(chatId, empty, { disable_notification: true });
+  await api.pinChatMessage(chatId, message.message_id, { disable_notification: true }).catch(() => undefined);
+  await updateChat(chatId, { progressMessageId: message.message_id });
+  await updateProgress(api, chatId);
 }
 
 export async function updateProgress(api: Api, chatId: number): Promise<void> {

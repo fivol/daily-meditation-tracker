@@ -29,15 +29,15 @@ Rankings exist to make it fun; the tone of every message is supportive, never sh
 
 | Time | Event | Notification |
 |---|---|---|
-| **05:00** | Yesterday's leaderboard + **morning poll** | silent |
+| **04:00** | **Day close** (polls stopped, stats recalculated, removal rule applied), then yesterday's leaderboard + **morning poll** | silent |
 | **16:00** | **Evening poll** | normal |
 | **21:30** | **Reminder** pinging everyone with 0 sessions today | pings (mentions reach people even if the chat is muted) |
-| **04:00** | **Day close**: polls stopped, stats recalculated, removal rule applied | silent unless someone is removed |
-| **Mon 05:00** | Weekly recap added on top of the daily leaderboard | silent |
+| **Mon 04:00** | Weekly recap added on top of the daily leaderboard | silent |
 
 Why these times:
-- The leaderboard arrives together with the morning poll: the day starts with "here is where we
-  are" plus one tap to check in. One block of messages instead of noise throughout the day.
+- Closing a day and opening the next happen at the same moment, so there is no gap: whoever
+  wakes at 04:30 or sits at 00:30 always has an open poll. The day starts with "here is where we
+  are" plus one tap to check in — one block of messages instead of noise throughout the day.
 - 21:30 instead of 22–23: an hour-long sit still fits before sleep.
 - Routine messages are silent: anyone who wants zero noise mutes the chat and still gets pinged
   by name when it actually matters.
@@ -62,6 +62,7 @@ Why these times:
   messages in the chat.
   - Typical case: voted "не получилось" in the morning, sat at noon → retract, vote "1 час".
 - The poll is open from posting until **day close (04:00)**; then the bot calls `stopPoll`.
+  Votes for a day that has ended are ignored, so nothing can slip in while the day is being closed.
   After that, only an admin can fix a record (`/fix`).
 - The bot stores the time of every vote (and of every change).
 
@@ -73,7 +74,7 @@ whole day, and a misclick could not be fixed. The confetti is replaced by milest
 
 ## 4. What people see
 
-### 4.1 Daily leaderboard (posted 05:00)
+### 4.1 Daily leaderboard (posted 04:00)
 
 ```
 🪷 Практика за вчера · вс 15 ноября
@@ -111,7 +112,7 @@ One pinned message that the bot edits on every vote — just the day's totals:
 ☀️ Сегодня: утро 18/28 · вечер 5/28
 ```
 
-### 4.3 Weekly recap (Monday 05:00)
+### 4.3 Weekly recap (Monday 04:00)
 
 Added on top of Monday's leaderboard:
 - Group: total sessions and hours for the week, % of the maximum, best day.
@@ -169,6 +170,13 @@ Users without a `@username` are mentioned via a `tg://user?id=` text mention.
   against regularity.
 - Chat admins can't be removed by a bot — for them the rule is warning-only.
 - New members: counting starts on the day they join.
+
+### 5.2.1 Group upgrades
+
+Telegram turns a basic group into a supergroup on some admin actions, and the chat id changes.
+The bot handles the `migrate_to_chat_id` service message: it moves all data (settings, members,
+check-ins, days, poll mappings) to the new id and re-creates the pinned progress message.
+In basic groups a removal is a plain kick (unbanning exists only in supergroups).
 
 ### 5.3 Pause (retreats, illness, travel)
 

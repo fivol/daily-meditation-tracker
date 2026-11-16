@@ -10,10 +10,9 @@ tap and turns honest records into gentle social support.
 
 | Time (MSK) | What happens |
 |---|---|
-| 05:00 | Yesterday's leaderboard + morning poll |
+| 04:00 | Day closes (stats final, removal rule applied), yesterday's leaderboard, morning poll |
 | 16:00 | Evening poll |
 | 21:30 | Pings everyone with no session today |
-| 04:00 | Day closes: stats are final, the removal rule is applied |
 
 - **Check-in = one tap** in a non-anonymous poll: `1 час` · `30 минут` · `15 минут` ·
   `Сегодня не получилось`. Changed your mind? Retract the vote and vote again.
