@@ -63,6 +63,11 @@ Members appear in the stats after their first vote or any message in the group.
 
 ## Maintenance
 
+- **Logs:** every line has a UTC timestamp and goes both to stdout and to `logs/bot-YYYY-MM-DD.log`
+  (kept 30 days; in Docker `./logs` is mounted from the host, so logs survive redeploys).
+  On the server: `tail -f /root/daily-meditation-tracker/logs/bot-$(date -u +%F).log`.
+  Failed updates are logged with the full update, so a lost vote can be restored with `/fix`.
+
 - **Change times / rules:** `/settings` in the group (admins).
 - **Fix a record:** `/fix @user 2026-11-15 evening 60` (or `remove`).
 - **Rebuild aggregates** from raw data: `npm run recompute -- <chatId> [userId]`.

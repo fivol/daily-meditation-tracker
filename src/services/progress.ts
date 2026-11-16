@@ -1,4 +1,5 @@
 import type { Api } from 'grammy';
+import { log } from '../logger.js';
 import { renderProgress } from '../render.js';
 import { practiceDate } from '../time.js';
 import { SLOTS, type Slot } from '../types.js';
@@ -16,7 +17,7 @@ export function scheduleProgressUpdate(api: Api, chatId: number): void {
     chatId,
     setTimeout(() => {
       pending.delete(chatId);
-      updateProgress(api, chatId).catch((err) => console.error('Progress update failed', err));
+      updateProgress(api, chatId).catch((err) => log.error(`Chat ${chatId}: progress update failed`, err));
     }, DEBOUNCE_MS),
   );
 }

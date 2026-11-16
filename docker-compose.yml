@@ -4,3 +4,6 @@ services:
     restart: always
     env_file:
       - .env
+    volumes:
+      # Daily log files outlive container re-creation on every deploy.
+      - ./logs:/app/logs

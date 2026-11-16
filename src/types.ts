@@ -83,7 +83,7 @@ export interface Checkin {
   source: 'poll' | 'admin';
 }
 
-export type JobName = 'morning' | 'evening' | 'reminder' | 'close';
+export type JobName = 'leaderboard' | 'morning' | 'evening' | 'reminder';
 
 export interface PollRef {
   messageId: number;

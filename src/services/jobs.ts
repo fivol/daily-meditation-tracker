@@ -1,7 +1,8 @@
 import { InputFile, type Api } from 'grammy';
 import { FieldValue } from 'firebase-admin/firestore';
 import { env } from '../config.js';
-import { checkins, days, db, members, polls, users } from '../db.js';
+import { chats, checkins, days, db, members, polls, users } from '../db.js';
+import { log } from '../logger.js';
 import {
   milestoneText,
   pollQuestion,
@@ -15,7 +16,6 @@ import {
 import { applyDay, emptyStats, reachedMilestones } from '../stats.js';
 import { addDays, isMonday } from '../time.js';
 import type { ChatSettings, DayStatus, Member, Slot } from '../types.js';
-import { updateChat } from './chats.js';
 import { checkinsOfDay, checkinsOfMember, doneSessions, sessionKey } from './checkins.js';
 import { getMember, listMembers, updateMember } from './members.js';
 import { updateProgress } from './progress.js';
@@ -54,35 +54,40 @@ async function sendPoll(api: Api, chatId: number, date: string, slot: Slot, noti
     POLL_OPTIONS.map((o) => ({ text: o.text })),
     { is_anonymous: false, disable_notification: !notify },
   );
+  // The mapping and the job marker are written together, so a failure here can't leave a poll
+  // whose votes are ignored, and a retry can't post a second poll.
+  const batch = db.batch();
+  batch.set(polls().doc(message.poll.id), { chatId, date, slot, optionMinutes: POLL_OPTIONS.map((o) => o.minutes) });
+  batch.set(
+    days(chatId).doc(date),
+    { polls: { [slot]: { messageId: message.message_id, pollId: message.poll.id } }, jobsDone: { [slot]: true } },
+    { merge: true },
+  );
+  await batch.commit();
   // Pinned so the poll doesn't get lost in the chat; unpinned when the day closes.
   await api
     .pinChatMessage(chatId, message.message_id, { disable_notification: true })
-    .catch((err) => console.error('Pinning the poll failed', err));
-  await polls().doc(message.poll.id).set({
-    chatId,
-    date,
-    slot,
-    optionMinutes: POLL_OPTIONS.map((o) => o.minutes),
-  });
-  await days(chatId)
-    .doc(date)
-    .set({ polls: { [slot]: { messageId: message.message_id, pollId: message.poll.id } } }, { merge: true });
+    .catch((err) => log.error(`Chat ${chatId}: pinning the ${slot} poll failed`, err));
 }
 
-/** Start of the day (04:00, right after the close) — yesterday's leaderboard (+ weekly recap on Mondays) and the morning poll. */
-export async function runMorning(api: Api, chatId: number, settings: ChatSettings, date: string) {
+/** Start of the day (04:00, right after the close) — yesterday's leaderboard, plus the weekly recap on Mondays. */
+export async function runLeaderboard(api: Api, chatId: number, settings: ChatSettings, date: string) {
   const yesterday = addDays(date, -1);
   const monday = isMonday(date);
   if (yesterday >= settings.startDate) {
     const text = await buildLeaderboard(chatId, settings, yesterday, monday);
     await api.sendMessage(chatId, text, silentHtml);
   }
-  await sendPoll(api, chatId, date, 'morning', false);
-  // A broken pinned message must not make the job retry and re-post the poll.
-  await updateProgress(api, chatId).catch((err) => console.error('Progress update failed', err));
   if (monday && env.ownerId) {
-    await sendExport(api, chatId, env.ownerId).catch((err) => console.error('Weekly export failed', err));
+    await sendExport(api, chatId, env.ownerId).catch((err) => log.error('Weekly export failed', err));
   }
+}
+
+/** Right after the leaderboard — the morning poll. */
+export async function runMorning(api: Api, chatId: number, _settings: ChatSettings, date: string) {
+  await sendPoll(api, chatId, date, 'morning', false);
+  // A broken pinned message must not fail the job.
+  await updateProgress(api, chatId).catch((err) => log.error(`Chat ${chatId}: progress update failed`, err));
 }
 
 /** 16:00 — the evening poll. */
@@ -137,23 +142,28 @@ export async function closeDay(api: Api, chatId: number, settings: ChatSettings,
     batch.set(members(chatId).doc(String(m.userId)), patch, { merge: true });
   }
   batch.set(dayRef, { statuses, milestones }, { merge: true });
+  // Same batch: the day is applied to the stats exactly once, even if the bot dies right here.
+  batch.set(chats().doc(String(chatId)), { lastClosedDate: date }, { merge: true });
   await batch.commit();
-  await updateChat(chatId, { lastClosedDate: date });
 
   for (const m of toRemove) {
-    await removeMember(api, chatId, m).catch((err) => console.error(`Removal of ${m.userId} failed`, err));
+    await removeMember(api, chatId, m).catch((err) => log.error(`Chat ${chatId}: removal of ${m.userId} failed`, err));
   }
 }
 
 async function removeMember(api: Api, chatId: number, m: Member) {
   const current = await api.getChatMember(chatId, m.userId);
-  if (current.status === 'creator' || current.status === 'administrator') return; // warning-only for admins
+  if (current.status === 'creator' || current.status === 'administrator') {
+    log.info(`Chat ${chatId}: ${m.userId} missed ${m.missedInRow + 1} days but is an admin, not removed`);
+    return;
+  }
   if (current.status !== 'left' && current.status !== 'kicked') {
     await api.banChatMember(chatId, m.userId);
     // Unbanning exists only in supergroups; in basic groups a ban is already a plain kick.
     await api.unbanChatMember(chatId, m.userId, { only_if_banned: true }).catch(() => undefined);
   }
   await updateMember(chatId, m.userId, { status: 'removed' });
+  log.info(`Chat ${chatId}: removed ${m.userId} (${m.firstName}) after ${m.missedInRow + 1} missed days`);
   await api.sendMessage(chatId, renderRemoval(m), silentHtml);
 
   if (!(await users().doc(String(m.userId)).get()).data()?.canDm) return;

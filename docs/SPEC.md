@@ -276,6 +276,15 @@ A tick every 30 seconds. For each chat:
 
 ### 7.5 Reliability and backups
 
+- Telegram API calls retry rate limits (429), server errors (5xx) and network failures
+  (`@grammyjs/auto-retry`, up to 5 attempts).
+- Each scheduled job sends exactly one thing and is marked done in Firestore afterwards (a poll
+  together with its mapping, in one batch), so a retry never duplicates a message. Jobs that fail
+  transiently are retried on the next tick; jobs Telegram refuses for good (400/403) are logged
+  and skipped instead of retrying forever.
+- Closing a day writes the stats and `lastClosedDate` in one batch, so a day is never counted twice.
+- Logs: timestamped, to stdout and to daily files in `logs/` (30 days), mounted from the host.
+
 - `npm run recompute -- <chatId> [userId]` rebuilds aggregates from raw data at any time.
 - Weekly automatic CSV export to the owner's DM (`OWNER_ID`) — a free, independent backup.
 

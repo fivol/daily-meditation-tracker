@@ -1,5 +1,6 @@
 import type { Bot } from 'grammy';
 import { polls } from '../db.js';
+import { log } from '../logger.js';
 import { renderWelcome } from '../render.js';
 import { getChat, migrateChat } from '../services/chats.js';
 import { saveCheckin } from '../services/checkins.js';
@@ -19,12 +20,16 @@ export function registerEvents(bot: Bot): void {
     if (!poll) return;
     const settings = await getChat(poll.chatId);
     // Only today's polls count: after 04:00 yesterday is being (or has been) closed.
-    if (!settings || poll.date !== practiceDate(settings)) return;
+    if (!settings || poll.date !== practiceDate(settings)) {
+      log.warn(`Vote of ${user.id} in the ${poll.date} ${poll.slot} poll ignored: the day is over`);
+      return;
+    }
 
     await ensureMember(poll.chatId, user, practiceDate(settings));
     const minutes = option_ids.length ? (poll.optionMinutes[option_ids[0]] ?? null) : null;
     const status = !option_ids.length ? 'revoked' : minutes ? 'done' : 'skipped';
     await saveCheckin(poll.chatId, { userId: user.id, date: poll.date, slot: poll.slot, status, minutes }, 'poll');
+    log.info(`Chat ${poll.chatId}: vote ${user.id} ${poll.date} ${poll.slot} → ${status}${minutes ? ` ${minutes}m` : ''}`);
     scheduleProgressUpdate(ctx.api, poll.chatId);
   });
 
@@ -32,7 +37,7 @@ export function registerEvents(bot: Bot): void {
   bot.on('message:migrate_to_chat_id', async (ctx) => {
     const newId = ctx.msg.migrate_to_chat_id;
     if (!(await migrateChat(ctx.chat.id, newId))) return;
-    console.log(`Chat ${ctx.chat.id} migrated to ${newId}`);
+    log.info(`Chat ${ctx.chat.id} migrated to ${newId}`);
     await createProgressMessage(ctx.api, newId);
   });
 
@@ -41,8 +46,7 @@ export function registerEvents(bot: Bot): void {
     if (ctx.from?.id !== ctx.me.id) return;
     await ctx
       .deleteMessage()
-      .then(() => console.log(`Deleted pin notice ${ctx.msg.message_id} in ${ctx.chat.id}`))
-      .catch((err) => console.error('Deleting a pin notice failed', err));
+      .catch((err) => log.error(`Chat ${ctx.chat.id}: deleting a pin notice failed`, err));
   });
 
   // Joins and leaves (requires the bot to be an admin to receive these updates).
