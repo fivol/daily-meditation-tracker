@@ -1,8 +1,15 @@
-import { initializeApp, applicationDefault } from 'firebase-admin/app';
+import { initializeApp, applicationDefault, cert } from 'firebase-admin/app';
 import { getFirestore, type CollectionReference } from 'firebase-admin/firestore';
 import type { ChatSettings, Checkin, DayDoc, Member, PollDoc, Slot } from './types.js';
 
-initializeApp({ credential: applicationDefault() });
+// In containers the key comes base64-encoded in an env variable; locally, from a file
+// pointed to by GOOGLE_APPLICATION_CREDENTIALS.
+const encodedKey = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
+initializeApp({
+  credential: encodedKey
+    ? cert(JSON.parse(Buffer.from(encodedKey, 'base64').toString('utf8')))
+    : applicationDefault(),
+});
 
 export const db = getFirestore();
 db.settings({ ignoreUndefinedProperties: true });
