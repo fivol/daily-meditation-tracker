@@ -43,6 +43,11 @@ export function humanDate(date: string): string {
   return DateTime.fromISO(date).setLocale('ru').toFormat('ccc d MMMM');
 }
 
+/** "16 ноября" */
+export function dayMonth(date: string): string {
+  return DateTime.fromISO(date).setLocale('ru').toFormat('d MMMM');
+}
+
 /** "28.11" */
 export function shortDate(date: string): string {
   return DateTime.fromISO(date).toFormat('dd.MM');

@@ -1,18 +1,19 @@
 import type { Bot, Context } from 'grammy';
 import { DEFAULT_SETTINGS } from '../config.js';
 import { users } from '../db.js';
-import { HELP_TEXT, PRIVATE_TEXT, renderMe } from '../render.js';
-import { getChat, updateChat } from '../services/chats.js';
-import { checkinsOfMember, saveCheckin } from '../services/checkins.js';
+import { HELP_TEXT, PRIVATE_HELP, renderMe, renderMeDetailed } from '../render.js';
+import { getChat, listChats, updateChat } from '../services/chats.js';
+import { saveCheckin } from '../services/checkins.js';
 import { buildLeaderboard, recomputeMember, sendExport } from '../services/jobs.js';
-import { applyDay, type DaySessions } from '../stats.js';
 import { ensureMember, getMember, updateMember } from '../services/members.js';
+import { personalStats } from '../services/personal.js';
 import { createProgressMessage, scheduleProgressUpdate } from '../services/progress.js';
-import { addDays, dateRange, isValidDate, isValidTime, practiceDate, usualTime } from '../time.js';
-import type { ChatSettings, Minutes, Schedule, Slot } from '../types.js';
+import { addDays, isValidDate, isValidTime, practiceDate } from '../time.js';
+import type { ChatSettings, Minutes, Schedule } from '../types.js';
 import {
   args,
   deleteCommand,
+  html,
   isAdmin,
   replyTemp,
   requireChat,
@@ -22,10 +23,13 @@ import {
 
 type Handler = (ctx: Context) => Promise<void>;
 
-/** Group command: deletes the command message, checks setup and (optionally) admin rights. */
+/**
+ * Group command: deletes the command message, checks setup and (optionally) admin rights.
+ * Ignored in the private chat.
+ */
 function groupCommand(handler: (ctx: Context, settings: ChatSettings) => Promise<void>, adminOnly = false): Handler {
   return async (ctx) => {
-    if (ctx.chat?.type === 'private') return void (await ctx.reply(PRIVATE_TEXT));
+    if (ctx.chat?.type === 'private') return;
     await deleteCommand(ctx);
     const settings = await requireChat(ctx);
     if (!settings) return;
@@ -37,12 +41,12 @@ function groupCommand(handler: (ctx: Context, settings: ChatSettings) => Promise
 const start: Handler = async (ctx) => {
   if (ctx.chat?.type !== 'private' || !ctx.from) return;
   await users().doc(String(ctx.from.id)).set({ canDm: true }, { merge: true });
-  await ctx.reply(PRIVATE_TEXT);
+  await ctx.reply(PRIVATE_HELP, html);
 };
 
 const help: Handler = async (ctx) => {
   await deleteCommand(ctx);
-  if (ctx.chat?.type === 'private') await ctx.reply(PRIVATE_TEXT);
+  if (ctx.chat?.type === 'private') await ctx.reply(PRIVATE_HELP, html);
   else await replyTemp(ctx, HELP_TEXT);
 };
 
@@ -68,31 +72,28 @@ const setup: Handler = async (ctx) => {
   );
 };
 
-const me = groupCommand(async (ctx, settings) => {
-  const chatId = ctx.chat!.id;
-  const today = practiceDate(settings);
-  const member = await ensureMember(chatId, ctx.from!, today);
-  const dates = dateRange(addDays(today, -30), today);
-  const list = (await checkinsOfMember(chatId, member.userId, dates)).filter((c) => c.status === 'done');
-  const firstAt = (slot: Slot) => list.filter((c) => c.slot === slot).map((c) => c.firstAt);
-  const todayDone: DaySessions = Object.fromEntries(
-    list.filter((c) => c.date === today && c.minutes).map((c) => [c.slot, c.minutes]),
-  );
-  // Today's sessions count right away; regularity stays on closed days so that a day
-  // with only the morning done doesn't drag it down until the evening.
-  const live = Object.keys(todayDone).length
-    ? { ...member, ...applyDay(member, today, 'active', todayDone), recent: member.recent }
-    : member;
-  await replyTemp(
-    ctx,
-    renderMe({
-      member: live,
-      today: todayDone,
-      usualTimes: { morning: usualTime(settings, firstAt('morning')), evening: usualTime(settings, firstAt('evening')) },
-      daysWithUs: dateRange(member.joinedDate, today).length,
-    }),
-  );
+const groupMe = groupCommand(async (ctx, settings) => {
+  const member = await ensureMember(ctx.chat!.id, ctx.from!, practiceDate(settings));
+  await replyTemp(ctx, renderMe(await personalStats(ctx.chat!.id, settings, member)));
 });
+
+/** In private: detailed stats for every group the user takes part in. */
+const privateMe: Handler = async (ctx) => {
+  const blocks: string[] = [];
+  for (const { chatId, settings } of await listChats()) {
+    const member = await getMember(chatId, ctx.from!.id);
+    if (!member) continue;
+    const chat = await ctx.api.getChat(chatId).catch(() => null);
+    const chatTitle = chat && 'title' in chat && chat.title ? chat.title : 'группа';
+    blocks.push(renderMeDetailed({ ...(await personalStats(chatId, settings, member)), chatTitle }));
+  }
+  await ctx.reply(
+    blocks.length ? blocks.join('\n\n— — —\n\n') : 'Статистики пока нет: отметься в опросе в группе 🙏',
+    html,
+  );
+};
+
+const me: Handler = (ctx) => (ctx.chat?.type === 'private' ? privateMe(ctx) : groupMe(ctx));
 
 const top = groupCommand(async (ctx, settings) => {
   if (settings.lastClosedDate < settings.startDate) return replyTemp(ctx, 'Таблица появится после первого закрытого дня.');

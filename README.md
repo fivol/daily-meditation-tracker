@@ -41,7 +41,7 @@ tap and turns honest records into gentle social support.
 
 | Who | Command | Purpose |
 |---|---|---|
-| Everyone | `/me` | Personal stats |
+| Everyone | `/me` | Personal stats (in the group); detailed stats in the bot's private chat |
 | Everyone | `/top` | Latest leaderboard |
 | Everyone | `/pause N [reason]`, `/resume` | Pause for N days / end it |
 | Everyone | `/help` | Rules |

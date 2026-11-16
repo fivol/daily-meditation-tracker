@@ -1,6 +1,6 @@
 import type { Milestone } from './stats.js';
-import { compareMembers, recentSessions, regularity } from './stats.js';
-import { humanDate, shortDate } from './time.js';
+import { rankMembers, recentSessions, regularity } from './stats.js';
+import { dayMonth, humanDate, shortDate } from './time.js';
 import type { DayEntry, Member, Minutes, Slot } from './types.js';
 
 export const POLL_OPTIONS: { text: string; minutes: Minutes | null }[] = [
@@ -78,7 +78,7 @@ export interface LeaderboardInput {
 export function renderLeaderboard(input: LeaderboardInput): string {
   const visible = input.members.filter((m) => m.status !== 'removed');
   const active = visible.filter((m) => m.status === 'active');
-  const ranked = active.filter((m) => m.activeDays >= input.newcomerDays).sort(compareMembers);
+  const ranked = rankMembers(visible, input.newcomerDays);
   const newcomers = active.filter((m) => m.activeDays < input.newcomerDays);
   const paused = visible.filter((m) => m.status === 'paused');
 
@@ -205,6 +205,71 @@ export function renderMe({ member: m, today, usualTimes, daysWithUs }: MeInput):
   return lines.join('\n');
 }
 
+export interface DetailedMeInput extends MeInput {
+  chatTitle: string;
+  /** Place in the leaderboard; null when not ranked (newcomer or paused). */
+  rank: { place: number; total: number } | null;
+  newcomerDaysLeft: number;
+  /** Sessions of the last 30 days by reported duration. */
+  durations: Record<Minutes, number>;
+}
+
+const hours = (minutes: number) =>
+  `${minutes < 600 ? String(Number((minutes / 60).toFixed(1))).replace('.', ',') : Math.round(minutes / 60)} ч`;
+
+/** Regularity of a window as "85% (51 из 60)". */
+function ratio(recent: DayEntry[]): string | null {
+  const possible = 2 * recent.filter((d) => d.status === 'active').length;
+  if (possible === 0) return null;
+  const done = recentSessions({ recent });
+  return `${percent(done / possible)} (${done} из ${possible})`;
+}
+
+/** Full personal stats for the private chat. */
+export function renderMeDetailed(input: DetailedMeInput): string {
+  const { member: m, today, usualTimes, daysWithUs, chatTitle, rank, newcomerDaysLeft, durations } = input;
+  const mark = (slot: Slot) => (today[slot] ? `✅ ${today[slot]} мин` : '—');
+  const month = ratio(m.recent);
+  const week = ratio(m.recent.slice(-7));
+
+  const lines = [
+    `🧘 <b>${displayName(m)}</b> · ${escapeHtml(chatTitle)}`,
+    `С нами ${days(daysWithUs)}, с ${dayMonth(m.joinedDate)}`,
+    '',
+    '📈 <b>Регулярность</b>',
+    month ? `За 30 дней: ${month} · за 7 дней: ${week}` : 'Появится после первого закрытого дня (в 04:00)',
+  ];
+  if (rank) lines.push(`🏆 Место в таблице: ${rank.place} из ${rank.total}`);
+  else if (m.status === 'paused') lines.push(`🏕 На паузе${m.pauseUntil ? ` до ${shortDate(m.pauseUntil)}` : ''}`);
+  else lines.push(`🌱 В таблицу попадёшь через ${days(newcomerDaysLeft)}`);
+  lines.push(`🔥 Серия: ${days(m.currentStreak)} · рекорд ${days(m.bestStreak)}`);
+  if (m.missedInRow > 0) lines.push(`⚠️ Без практики ${days(m.missedInRow)} подряд`);
+
+  lines.push('', '📿 <b>Всего</b>', `Сессий: ${m.sessions} — утро ${m.morningSessions} · вечер ${m.eveningSessions}`);
+  if (m.sessions > 0) {
+    lines.push(`Время: ${hours(m.minutes)} · в среднем ${Math.round(m.minutes / m.sessions)} мин за сессию`);
+  }
+  lines.push(`Дней с практикой: ${m.practicedDays} из ${m.activeDays} · обе практики: ${m.fullDays}`);
+
+  lines.push('', `☀️ <b>Сегодня</b>: утро ${mark('morning')} · вечер ${mark('evening')}`);
+  const usual = [
+    usualTimes.morning && `утро ~${usualTimes.morning}`,
+    usualTimes.evening && `вечер ~${usualTimes.evening}`,
+  ].filter(Boolean);
+  if (usual.length) lines.push(`⏰ Обычно отмечаешься: ${usual.join(' · ')}`);
+  const byDuration = ([60, 30, 15] as const)
+    .filter((min) => durations[min] > 0)
+    .map((min) => `${min === 60 ? '1 ч' : `${min} мин`} ×${durations[min]}`);
+  if (byDuration.length) lines.push(`⏱ За 30 дней: ${byDuration.join(' · ')}`);
+
+  if (m.recent.length > 0) {
+    const calendar = strip(m.recent, 30).match(/.{1,10}/gu) ?? [];
+    lines.push('', '🗓 <b>Последние 30 дней</b>', ...calendar.map((row) => `<code>${row}</code>`));
+    lines.push('● обе · ◐ одна · ○ нет · · пауза');
+  }
+  return lines.join('\n');
+}
+
 export function renderRemoval(m: Member): string {
   return `${displayName(m)} взял(а) паузу от чата. Возвращайся, когда будешь готов(а) 🙏`;
 }
@@ -223,18 +288,15 @@ export function renderWelcome(m: Member): string {
   );
 }
 
-/** Reply to anything in the private chat: the bot lives in the group. */
-export const PRIVATE_TEXT =
-  '🪷 Этот бот работает в группе: там опросы, таблица и /me — твоя статистика.\n' +
-  'Сюда он напишет, только если понадобится, например пришлёт ссылку, чтобы вернуться в группу.';
-
-export const HELP_TEXT = `🪷 <b>Как это работает</b>
+const RULES = `🪷 <b>Как это работает</b>
 
 • В 04:00 день закрывается: итоги вчерашнего дня и сразу утренний опрос. В 16:00 — вечерний. Отметься, когда помедитируешь: 1 час, 30 или 15 минут. Ошибся — «Retract vote» и проголосуй заново.
 • Опросы открыты до 04:00 следующего дня.
 • В 21:30 бот напоминает тем, у кого сегодня ещё ни одной сессии.
 • Регулярность — доля сделанных сессий (утро + вечер) за последние 30 дней. По ней строится таблица.
-• Три дня подряд без практики — бот убирает из чата. Вернуться можно в любой момент, статистика сохраняется.
+• Три дня подряд без практики — бот убирает из чата. Вернуться можно в любой момент, статистика сохраняется.`;
+
+export const HELP_TEXT = `${RULES}
 
 <b>Команды</b>
 /me — моя статистика
@@ -244,3 +306,8 @@ export const HELP_TEXT = `🪷 <b>Как это работает</b>
 
 <b>Для админов</b>
 /setup · /settings · /fix · /forgive · /pause @user N · /export`;
+
+/** Help in the private chat: only what works there. */
+export const PRIVATE_HELP = `${RULES}
+
+/me — подробная статистика`;

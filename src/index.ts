@@ -24,13 +24,24 @@ registerCommands(bot);
 bot.catch(({ error, ctx }) => log.error(`Update ${ctx.update.update_id} failed`, ctx.update, error));
 
 try {
-  await bot.api.setMyCommands([
-    { command: 'me', description: 'Моя статистика' },
-    { command: 'top', description: 'Таблица за вчера' },
-    { command: 'pause', description: 'Пауза на N дней: /pause 10 ретрит' },
-    { command: 'resume', description: 'Закончить паузу' },
-    { command: 'help', description: 'Правила и команды' },
-  ]);
+  // The menu shows only what works in each kind of chat.
+  await bot.api.setMyCommands(
+    [
+      { command: 'me', description: 'Моя статистика' },
+      { command: 'top', description: 'Таблица за вчера' },
+      { command: 'pause', description: 'Пауза на N дней: /pause 10 ретрит' },
+      { command: 'resume', description: 'Закончить паузу' },
+      { command: 'help', description: 'Правила и команды' },
+    ],
+    { scope: { type: 'all_group_chats' } },
+  );
+  await bot.api.setMyCommands(
+    [
+      { command: 'me', description: 'Подробная статистика' },
+      { command: 'help', description: 'Правила' },
+    ],
+    { scope: { type: 'all_private_chats' } },
+  );
 
   const timer = startScheduler(bot.api);
   const stop = (signal: string) => {

@@ -60,18 +60,14 @@ export function registerEvents(bot: Bot): void {
     if (!wasIn && isIn) {
       const today = practiceDate(settings);
       const member = await markJoined(chat.id, after.user, today);
+      // The welcome replies to the current poll, so one tap on the quote takes the newcomer there.
+      const dayPolls = (await days(chat.id).doc(today).get()).data()?.polls;
+      const latest = dayPolls?.evening ?? dayPolls?.morning;
       await ctx.api.sendMessage(chat.id, renderWelcome(member), {
         ...html,
         disable_notification: true,
+        ...(latest && { reply_parameters: { message_id: latest.messageId, allow_sending_without_reply: true } }),
       });
-      // The newcomer can check in right away: a forwarded poll is the same poll, votes count.
-      const dayPolls = (await days(chat.id).doc(today).get()).data()?.polls;
-      const latest = dayPolls?.evening ?? dayPolls?.morning;
-      if (latest) {
-        await ctx.api
-          .forwardMessage(chat.id, chat.id, latest.messageId, { disable_notification: true })
-          .catch((err) => log.error(`Chat ${chat.id}: forwarding the poll to a newcomer failed`, err));
-      }
     } else if (wasIn && !isIn) {
       await markLeft(chat.id, after.user.id);
     }

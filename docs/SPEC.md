@@ -140,6 +140,15 @@ Reply in the chat, auto-deleted after 2 minutes (the command message is deleted 
 
 `/top` re-posts the current leaderboard on demand.
 
+### 4.6 Private chat
+
+The private chat answers only what works there: `/start` and `/help` show the rules, and `/me`
+shows detailed stats for every group the user is in — place in the leaderboard (or days left as a
+newcomer), 30- and 7-day regularity, streak and record, totals with average session length,
+practiced days out of active days, today, usual check-in times, sessions by duration for 30 days
+and a 30-day calendar. Other commands are silently ignored; the private command menu lists only
+`/me` and `/help`.
+
 ---
 
 ## 5. Accountability rules
@@ -169,8 +178,8 @@ Users without a `@username` are mentioned via a `tg://user?id=` text mention.
   - If they never started the bot, any member can share the group link.
 - On return: all stats are kept, the streak starts from 0, days outside the chat don't count
   against regularity.
-- A newcomer gets a short welcome and, right below it, the day's latest poll forwarded (a
-  forwarded poll is the same poll, so a vote there counts).
+- A newcomer gets a short welcome sent as a reply to the day's current poll, so one tap on the
+  quote takes them to it.
 - Chat admins can't be removed by a bot — for them the rule is warning-only.
 - New members: counting starts on the day they join.
 

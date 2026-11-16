@@ -90,6 +90,11 @@ export function compareMembers(a: Member, b: Member): number {
   );
 }
 
+/** Members that take a place in the leaderboard, in leaderboard order. */
+export function rankMembers(members: Member[], newcomerDays: number): Member[] {
+  return members.filter((m) => m.status === 'active' && m.activeDays >= newcomerDays).sort(compareMembers);
+}
+
 export type Milestone =
   | { kind: 'streak'; value: number }
   | { kind: 'sessions'; value: number }
