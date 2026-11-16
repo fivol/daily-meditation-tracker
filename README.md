@@ -61,6 +61,8 @@ npm install
 npm start
 ```
 
+Or with Docker: `docker compose up -d --build`.
+
 Then add the bot to the group as an admin and send `/setup`.
 Full instructions: [docs/SETUP.md](docs/SETUP.md).
 

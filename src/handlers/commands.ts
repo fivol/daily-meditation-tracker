@@ -5,6 +5,7 @@ import { HELP_TEXT, renderMe, renderProgress } from '../render.js';
 import { getChat, updateChat } from '../services/chats.js';
 import { checkinsOfMember, saveCheckin } from '../services/checkins.js';
 import { buildLeaderboard, recomputeMember, sendExport } from '../services/jobs.js';
+import { applyDay, type DaySessions } from '../stats.js';
 import { ensureMember, getMember, updateMember } from '../services/members.js';
 import { scheduleProgressUpdate } from '../services/progress.js';
 import { addDays, dateRange, isValidDate, isValidTime, practiceDate, usualTime } from '../time.js';
@@ -79,11 +80,18 @@ const me = groupCommand(async (ctx, settings) => {
   const dates = dateRange(addDays(today, -30), today);
   const list = (await checkinsOfMember(chatId, member.userId, dates)).filter((c) => c.status === 'done');
   const firstAt = (slot: Slot) => list.filter((c) => c.slot === slot).map((c) => c.firstAt);
-  const todayDone = Object.fromEntries(list.filter((c) => c.date === today).map((c) => [c.slot, c.minutes]));
+  const todayDone: DaySessions = Object.fromEntries(
+    list.filter((c) => c.date === today && c.minutes).map((c) => [c.slot, c.minutes]),
+  );
+  // Today's sessions count right away; regularity stays on closed days so that a day
+  // with only the morning done doesn't drag it down until the evening.
+  const live = Object.keys(todayDone).length
+    ? { ...member, ...applyDay(member, today, 'active', todayDone), recent: member.recent }
+    : member;
   await replyTemp(
     ctx,
     renderMe({
-      member,
+      member: live,
       today: todayDone,
       usualTimes: { morning: usualTime(settings, firstAt('morning')), evening: usualTime(settings, firstAt('evening')) },
       daysWithUs: dateRange(member.joinedDate, today).length,

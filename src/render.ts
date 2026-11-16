@@ -188,7 +188,9 @@ export function renderMe({ member: m, today, usualTimes, daysWithUs }: MeInput):
   const mark = (slot: Slot) => (today[slot] ? `✅ ${today[slot]} мин` : '—');
   const lines = [
     `🧘 <b>${displayName(m)}</b> · с нами ${days(daysWithUs)}`,
-    `📈 Регулярность за 30 дней: ${percent(regularity(m))} (${recentDone} из ${recentPossible} сессий)`,
+    recentPossible > 0
+      ? `📈 Регулярность за 30 дней: ${percent(regularity(m))} (${recentDone} из ${recentPossible} сессий)`
+      : '📈 Регулярность появится после первого закрытого дня (в 04:00)',
     `📿 Сессий: ${m.sessions} (утро ${m.morningSessions} · вечер ${m.eveningSessions}) · ${Math.round(m.minutes / 60)} ч`,
     `📅 Дней с практикой: ${m.practicedDays} · обе практики: ${m.fullDays}`,
     `🔥 Серия: ${days(m.currentStreak)} (рекорд — ${m.bestStreak})`,

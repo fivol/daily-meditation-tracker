@@ -27,12 +27,25 @@ npm start              # or `npm run dev` for auto-reload
 | Variable | Meaning |
 |---|---|
 | `BOT_TOKEN` | Token from @BotFather |
-| `GOOGLE_APPLICATION_CREDENTIALS` | Path to the service account JSON |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Path to the service account JSON (local runs) |
+| `FIREBASE_SERVICE_ACCOUNT_BASE64` | The same JSON, base64-encoded — used instead of the path, e.g. in Docker |
 | `OWNER_ID` | Optional. Your Telegram user id; receives a weekly CSV backup (start the bot in private first) |
 
 The bot uses long polling, so it runs anywhere: a small VPS, a home server, Railway/Fly.io,
 Cloud Run with min instances = 1. It keeps no local state — all data lives in Firestore, so the
 host can be replaced at any time.
+
+### Docker
+
+```bash
+echo "FIREBASE_SERVICE_ACCOUNT_BASE64=$(base64 < service-account.json | tr -d '\n')" >> .env
+docker compose up -d --build
+docker compose logs -f
+```
+
+The production instance runs on the `helsinki` server and is deployed with the
+[infra](https://github.com/fivol/infra) repository: `make deploy S=daily-meditation-tracker`
+(its `.env` lives in `infra/env/local/daily-meditation-tracker.env`).
 
 ## 4. Add the bot to the group
 
