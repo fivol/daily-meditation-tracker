@@ -16,8 +16,8 @@ tap and turns honest records into gentle social support.
 
 - **Check-in = one tap** in a non-anonymous poll: `1 час` · `30 минут` · `15 минут` ·
   `Сегодня не получилось`. Changed your mind? Retract the vote and vote again.
-- **Leaderboard** sorted by 30-day regularity (sessions done / sessions possible), with total
-  sessions, streak and a 7-day strip. Newcomers and paused members are listed separately.
+- **Leaderboard** sorted by practice hours over the last 30 days; each entry shows the title,
+  30-day hours and regularity (sessions done / sessions possible) and the streak.
 - **Live progress** in a pinned message: `☀️ Сегодня: утро 18/28 · вечер 5/28`.
 - **Weekly recap** on Mondays.
 - **Titles and achievements:** 15 titles by total hours (🌱 Искатель → ☸️ Будда) and 19 one-time
@@ -30,13 +30,15 @@ tap and turns honest records into gentle social support.
 🪷 Практика за вс 15 ноября
 Группа: 47 из 56 сессий (84%) 🙏
 
-за 30 дней · сессий всего · серия · 7 дней
-1. Аня   96%  212  🔥42  ●●●●●●●
-2. Боря  91%  188  🔥17  ●●◐●●●●
-3. Вика  88%   75  🔥17  ●◐●●◐●●
+1. Аня · 🎒 Старый студент
+   за 30 дней: 58 ч · 96% · 🔥 42 дня подряд
+2. Боря · 🌿 Практик
+   за 30 дней: 52 ч · 91% · 🔥 17 дней подряд
+3. Женя
+   за 30 дней: 9 ч · 88% · 🔥 4 дня подряд
 
-🏕 На паузе: Катя (ретрит, до 28.11)
-🎉 Боря — 14 дней подряд без пропусков!
+🏅 Награды дня
+Боря — 🌄 Семь рассветов, 🔔 Утренний гонг
 ```
 
 ## Commands

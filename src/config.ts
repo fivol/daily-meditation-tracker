@@ -18,7 +18,6 @@ export const DEFAULT_SETTINGS: Omit<ChatSettings, 'startDate'> = {
   schedule: { morning: '04:00', evening: '16:00', reminder: '21:30' },
   missLimit: 3,
   maxPauseDays: 21,
-  newcomerDays: 7,
 };
 
 export const RECENT_DAYS = 30;

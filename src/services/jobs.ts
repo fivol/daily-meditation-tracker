@@ -43,7 +43,6 @@ export async function buildLeaderboard(
   return renderLeaderboard({
     date,
     members: all,
-    newcomerDays: settings.newcomerDays,
     group,
     awardLines: daySnap.data()?.awardLines ?? [],
     weekly: withWeekly ? renderWeekly(all) : undefined,

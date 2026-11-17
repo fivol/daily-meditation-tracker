@@ -79,32 +79,36 @@ whole day, and a misclick could not be fixed. The confetti is replaced by title 
 ### 4.1 Daily leaderboard (posted 04:00)
 
 ```
-🪷 Практика за вчера · вс 15 ноября
+🪷 Практика за вс 15 ноября
 Группа: 47 из 56 сессий (84%) 🙏
 
-   за 30 дней · сессий всего · серия · 7 дней
- 1. Аня     96%  212  🔥42  ●●●●●●●
- 2. Боря    91%  188  🔥17  ●●◐●●●●
- 3. Вика    88%   75  🔥17  ●◐●●◐●●
- …
-24. Дима    41%   60  🔥0   ●◐○○○○○  ⚠️ 2 дня
+1. Аня · 🎒 Старый студент
+   за 30 дней: 58 ч · 96% · 🔥 42 дня подряд
+2. Боря · 🌿 Практик
+   за 30 дней: 52 ч · 91% · 🔥 17 дней подряд
+3. Женя
+   за 30 дней: 9 ч · 88% · 🔥 4 дня подряд
+…
+24. Дима
+   за 30 дней: 6 ч · 41% · ⚠️ без практики 2 дня
 
-🌱 Новички: Женя (4 дня с нами, 7 сессий)
-🏕 На паузе: Катя (ретрит, до 28.11)
-🎉 Боря — 2 недели без пропусков!
+🏕 На паузе
+Катя — ретрит, до 28.11
 
-● обе практики · ◐ одна · ○ нет
+🏅 Награды дня
+Боря — 🌄 Семь рассветов, 🔔 Утренний гонг
 ```
 
 - **"Группа: 47 из 56"** — sessions the whole group did yesterday out of the maximum possible
   (28 active members × 2). One number for "how we did together".
-- **Row:** rank · name · 30-day regularity · total sessions (all time) · current streak · last 7 days.
-- **Sorting:** 30-day regularity ↓, then sessions in the last 30 days ↓, then total sessions ↓.
+- **Entry:** two lines — rank, name and title (if any); then hours and regularity over the last
+  30 days, current streak, and a warning after a missed day.
+- **Sorting:** practice hours in the last 30 days ↓, then 30-day regularity ↓, then total hours ↓.
   A rolling window reflects how people practice *now*: an old-timer who stopped slides down,
-  someone who restarted climbs back within weeks.
-- **Newcomers** (< 7 active days) are listed separately, unranked — otherwise someone with
-  2 sessions in 1 day would top the board at 100%.
-- 30 rows fit easily within Telegram's 4096-char limit and on a phone screen.
+  someone who restarted climbs back within weeks. Newcomers are ranked like everyone else —
+  their few hours put them low naturally. Paused members are listed separately.
+- **Awards of the day:** one line per member with the new title and achievements.
+- 30 entries (~60 lines) fit within Telegram's 4096-char limit and on a phone screen.
 
 ### 4.2 Live day progress (pinned)
 
@@ -144,8 +148,7 @@ Reply in the chat, auto-deleted after 2 minutes (the command message is deleted 
 ### 4.6 Private chat
 
 The private chat answers only what works there: `/start` and `/help` show the rules, and `/me`
-shows detailed stats for every group the user is in — place in the leaderboard (or days left as a
-newcomer), 30- and 7-day regularity, streak and record, totals with average session length,
+shows detailed stats for every group the user is in — place in the leaderboard, 30- and 7-day regularity, streak and record, totals with average session length,
 practiced days out of active days, today, usual check-in times, sessions by duration for 30 days
 and a 30-day calendar. Other commands are silently ignored; the private command menu lists only
 `/me` and `/help`.
@@ -212,7 +215,7 @@ Essential for this audience: a 10-day Vipassana course means no phone at all.
 | All | `/pause N [reason]`, `/resume` | Pause |
 | All | `/help` | Rules and how-to |
 | Admin | `/setup` | Bind the bot to the chat, post the pinned progress message |
-| Admin | `/settings [key value]` | Show or change `morning`, `evening`, `reminder`, `missLimit`, `maxPauseDays`, `newcomerDays` |
+| Admin | `/settings [key value]` | Show or change `morning`, `evening`, `reminder`, `missLimit`, `maxPauseDays` |
 | Admin | `/fix @user date slot minutes\|remove` | Correct a record (e.g. after the poll closed) |
 | Admin | `/forgive @user` | Reset a member's missed-day counter |
 | Admin | `/pause @user N` | Pause on someone's behalf |
@@ -244,7 +247,7 @@ Command messages in the group are deleted by the bot after handling, to keep the
 ```
 chats/{chatId}
   timezone, dayBoundaryHour, schedule{morning, evening, reminder},
-  missLimit, maxPauseDays, newcomerDays,
+  missLimit, maxPauseDays,
   startDate, lastClosedDate, progressMessageId,
   awards{id: date}, noLossRun                   // group achievements
 

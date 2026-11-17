@@ -152,17 +152,21 @@ export function recentSessions(stats: Pick<MemberStats, 'recent'>): number {
   return stats.recent.reduce((sum, d) => sum + d.sessions, 0);
 }
 
-/** Leaderboard order: recent regularity, then recent sessions, then all-time sessions. */
+export function recentMinutes(stats: Pick<MemberStats, 'recent'>): number {
+  return stats.recent.reduce((sum, d) => sum + d.minutes, 0);
+}
+
+/** Leaderboard order: practice time over the recent window, then regularity, then all-time time. */
 export function compareMembers(a: Member, b: Member): number {
   return (
+    recentMinutes(b) - recentMinutes(a) ||
     regularity(b) - regularity(a) ||
-    recentSessions(b) - recentSessions(a) ||
-    b.sessions - a.sessions ||
+    b.minutes - a.minutes ||
     a.firstName.localeCompare(b.firstName)
   );
 }
 
-/** Members that take a place in the leaderboard, in leaderboard order. */
-export function rankMembers(members: Member[], newcomerDays: number): Member[] {
-  return members.filter((m) => m.status === 'active' && m.activeDays >= newcomerDays).sort(compareMembers);
+/** Members that take a place in the leaderboard (everyone active), in leaderboard order. */
+export function rankMembers(members: Member[]): Member[] {
+  return members.filter((m) => m.status === 'active').sort(compareMembers);
 }

@@ -176,7 +176,7 @@ const forgive = groupCommand(async (ctx) => {
 }, true);
 
 const SCHEDULE_KEYS: (keyof Schedule)[] = ['morning', 'evening', 'reminder'];
-const NUMBER_KEYS = ['missLimit', 'maxPauseDays', 'newcomerDays'] as const;
+const NUMBER_KEYS = ['missLimit', 'maxPauseDays'] as const;
 
 const settingsCommand = groupCommand(async (ctx, settings) => {
   const [key, value] = args(ctx);
@@ -187,7 +187,7 @@ const settingsCommand = groupCommand(async (ctx, settings) => {
       [
         '⚙️ <b>Настройки</b>',
         `morning ${s.morning} · evening ${s.evening} · reminder ${s.reminder}`,
-        `missLimit ${settings.missLimit} · maxPauseDays ${settings.maxPauseDays} · newcomerDays ${settings.newcomerDays}`,
+        `missLimit ${settings.missLimit} · maxPauseDays ${settings.maxPauseDays}`,
         `Часовой пояс: ${settings.timezone}, день заканчивается в ${settings.dayBoundaryHour}:00`,
         '',
         'Изменить: /settings reminder 21:00',

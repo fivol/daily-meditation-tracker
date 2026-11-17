@@ -13,7 +13,6 @@ export interface PersonalStats {
   daysWithUs: number;
   durations: Record<Minutes, number>;
   rank: { place: number; total: number } | null;
-  newcomerDaysLeft: number;
 }
 
 /** Everything /me shows about a member, in the group and (in more detail) in private. */
@@ -32,7 +31,7 @@ export async function personalStats(chatId: number, settings: ChatSettings, memb
   const durations: Record<Minutes, number> = { 60: 0, 30: 0, 15: 0 };
   for (const c of list) durations[c.minutes!] += 1;
 
-  const ranked = rankMembers(all, settings.newcomerDays);
+  const ranked = rankMembers(all);
   const place = ranked.findIndex((m) => m.userId === member.userId);
 
   return {
@@ -43,6 +42,5 @@ export async function personalStats(chatId: number, settings: ChatSettings, memb
     daysWithUs: dateRange(member.joinedDate, today).length,
     durations,
     rank: place >= 0 ? { place: place + 1, total: ranked.length } : null,
-    newcomerDaysLeft: Math.max(settings.newcomerDays - member.activeDays, 0),
   };
 }

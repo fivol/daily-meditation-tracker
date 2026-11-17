@@ -19,8 +19,6 @@ export interface ChatSettings {
   /** Consecutive missed days after which a member is removed. */
   missLimit: number;
   maxPauseDays: number;
-  /** Members with fewer active days are listed as newcomers, unranked. */
-  newcomerDays: number;
   /** First practice day tracked in this chat. */
   startDate: string;
   /** Last practice day whose results are final. */

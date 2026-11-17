@@ -8,7 +8,7 @@ import {
 } from './awards.js';
 import { TITLES } from './config.js';
 import type { DaySessions } from './stats.js';
-import { rankMembers, recentSessions, regularity } from './stats.js';
+import { rankMembers, recentMinutes, recentSessions, regularity } from './stats.js';
 import { dayMonth, humanDate, shortDate } from './time.js';
 import type { DayEntry, Member, Minutes, Slot } from './types.js';
 
@@ -90,14 +90,14 @@ export function renderAwards(m: Pick<Member, 'firstName'>, ids: string[]): strin
   return parts.join('\n\n');
 }
 
-/** Short lines for the leaderboard / weekly recap: the top title and each achievement. */
+/** One line for the leaderboard / weekly recap: the top title and every achievement of a member. */
 export function awardLines(m: Pick<Member, 'firstName'>, ids: string[]): string[] {
-  const name = displayName(m);
   const top = Math.max(0, ...ids.map((id) => titleLevelOf(id) ?? 0));
-  const lines: string[] = [];
-  if (top) lines.push(`🎉 ${name} — звание ${titleAt(top)!.emoji} ${titleAt(top)!.name}`);
-  for (const a of ACHIEVEMENTS.filter((a) => ids.includes(a.id))) lines.push(`🏅 ${name} — ${a.emoji} ${a.name}`);
-  return lines;
+  const names = [
+    ...(top ? [`звание ${titleAt(top)!.emoji} ${titleAt(top)!.name}`] : []),
+    ...ACHIEVEMENTS.filter((a) => ids.includes(a.id)).map((a) => `${a.emoji} ${a.name}`),
+  ];
+  return names.length ? [`${displayName(m)} — ${names.join(', ')}`] : [];
 }
 
 export function groupAwardLine(id: string): string {
@@ -105,13 +105,9 @@ export function groupAwardLine(id: string): string {
   return `${award.emoji} Группа получает «${award.name}»!`;
 }
 
-/** Title emoji in front of a name in the leaderboard. */
-const titleMark = (m: Member) => (m.title ? `${titleAt(m.title)!.emoji} ` : '');
-
 export interface LeaderboardInput {
   date: string;
   members: Member[];
-  newcomerDays: number;
   /** Sessions the group did that day and the maximum possible. */
   group: { done: number; possible: number };
   /** Titles and achievements of the day. */
@@ -119,11 +115,21 @@ export interface LeaderboardInput {
   weekly?: string;
 }
 
+/** Leaderboard entry: name with the title, then hours and regularity over 30 days, streak, warning. */
+function leaderboardEntry(m: Member, place: number): string[] {
+  const title = m.title ? titleAt(m.title) : undefined;
+  const details = [
+    `за 30 дней: ${hours(recentMinutes(m))}`,
+    percent(regularity(m)),
+    m.currentStreak > 0 && `🔥 ${days(m.currentStreak)} подряд`,
+    m.missedInRow > 0 && `⚠️ без практики ${days(m.missedInRow)}`,
+  ].filter(Boolean);
+  return [`${place}. ${displayName(m)}${title ? ` · ${title.emoji} ${title.name}` : ''}`, `   ${details.join(' · ')}`];
+}
+
 export function renderLeaderboard(input: LeaderboardInput): string {
   const visible = input.members.filter((m) => m.status !== 'removed');
-  const active = visible.filter((m) => m.status === 'active');
-  const ranked = rankMembers(visible, input.newcomerDays);
-  const newcomers = active.filter((m) => m.activeDays < input.newcomerDays);
+  const ranked = rankMembers(visible);
   const paused = visible.filter((m) => m.status === 'paused');
 
   const lines = [`🪷 <b>Практика за ${humanDate(input.date)}</b>`];
@@ -134,33 +140,17 @@ export function renderLeaderboard(input: LeaderboardInput): string {
   if (input.weekly) lines.push('', input.weekly);
 
   if (ranked.length > 0) {
-    lines.push('', '<i>за 30 дней · сессий всего · серия · 7 дней</i>');
-    ranked.forEach((m, i) => {
-      const warning = m.missedInRow > 0 ? `  ⚠️ ${days(m.missedInRow)}` : '';
-      lines.push(
-        `${i + 1}. ${titleMark(m)}${displayName(m)}  ${percent(regularity(m))}  ${m.sessions}  🔥${m.currentStreak}  ${strip(m.recent)}${warning}`,
-      );
-    });
-  }
-
-  if (newcomers.length > 0) {
-    const list = newcomers
-      .map((m) => `${displayName(m)} (${days(m.activeDays)} с нами, ${m.sessions} ${plural(m.sessions, 'сессия', 'сессии', 'сессий')})`)
-      .join(', ');
-    lines.push('', `🌱 Новички: ${list}`);
+    lines.push('');
+    ranked.forEach((m, i) => lines.push(...leaderboardEntry(m, i + 1)));
   }
   if (paused.length > 0) {
-    const list = paused
-      .map((m) => {
-        const details = [m.pauseReason, m.pauseUntil && `до ${shortDate(m.pauseUntil)}`].filter(Boolean);
-        return details.length ? `${displayName(m)} (${escapeHtml(details.join(', '))})` : displayName(m);
-      })
-      .join(', ');
-    lines.push('', `🏕 На паузе: ${list}`);
+    lines.push('', '🏕 <b>На паузе</b>');
+    for (const m of paused) {
+      const details = [m.pauseReason, m.pauseUntil && `до ${shortDate(m.pauseUntil)}`].filter(Boolean);
+      lines.push(details.length ? `${displayName(m)} — ${escapeHtml(details.join(', '))}` : displayName(m));
+    }
   }
-  if (input.awardLines.length > 0) lines.push('', ...input.awardLines);
-
-  lines.push('', '● обе практики · ◐ одна · ○ нет · · пауза');
+  if (input.awardLines.length > 0) lines.push('', '🏅 <b>Награды дня</b>', ...input.awardLines);
   return lines.join('\n');
 }
 
@@ -287,9 +277,8 @@ export function renderMe({ member: m, today, usualTimes, daysWithUs }: MeInput):
 
 export interface DetailedMeInput extends MeInput {
   chatTitle: string;
-  /** Place in the leaderboard; null when not ranked (newcomer or paused). */
+  /** Place in the leaderboard; null when not ranked (paused). */
   rank: { place: number; total: number } | null;
-  newcomerDaysLeft: number;
   /** Sessions of the last 30 days by reported duration. */
   durations: Record<Minutes, number>;
 }
@@ -304,7 +293,7 @@ function ratio(recent: DayEntry[]): string | null {
 
 /** Full personal stats for the private chat. */
 export function renderMeDetailed(input: DetailedMeInput): string {
-  const { member: m, date, today, usualTimes, daysWithUs, chatTitle, rank, newcomerDaysLeft, durations } = input;
+  const { member: m, date, today, usualTimes, daysWithUs, chatTitle, rank, durations } = input;
   const mark = (slot: Slot) => sessionMark(today, slot);
   const month = ratio(m.recent);
   const week = ratio(m.recent.slice(-7));
@@ -328,7 +317,6 @@ export function renderMeDetailed(input: DetailedMeInput): string {
   );
   if (rank) lines.push(`🏆 Место в таблице: ${rank.place} из ${rank.total}`);
   else if (m.status === 'paused') lines.push(`🏕 На паузе${m.pauseUntil ? ` до ${shortDate(m.pauseUntil)}` : ''}`);
-  else lines.push(`🌱 В таблицу попадёшь через ${days(newcomerDaysLeft)}`);
   lines.push(`🔥 Серия: ${days(m.currentStreak)} · рекорд ${days(m.bestStreak)}`);
   if (m.missedInRow > 0) lines.push(`⚠️ Без практики ${days(m.missedInRow)} подряд`);
 
@@ -421,7 +409,7 @@ const RULES = `🪷 <b>Как это работает</b>
 • В 04:00 день закрывается: итоги вчерашнего дня и сразу утренний опрос. В 16:00 — вечерний. Отметься, когда помедитируешь: 1 час, 30 или 15 минут. Ошибся — «Retract vote» и проголосуй заново.
 • Опросы открыты до 04:00 следующего дня.
 • В 21:30 бот напоминает тем, у кого сегодня ещё ни одной сессии.
-• Регулярность — доля сделанных сессий (утро + вечер) за последние 30 дней. По ней строится таблица.
+• Таблица отсортирована по часам практики за последние 30 дней. Рядом — регулярность: доля сделанных сессий (утро + вечер) за те же 30 дней.
 • Три дня подряд без практики — бот убирает из чата. Вернуться можно в любой момент, статистика сохраняется.
 • Звания растут с часами практики, достижения дают один раз за особые усилия. Поздравление приходит сразу после голоса; своё звание, прогресс и все достижения — в /me в личке у бота.`;
 
