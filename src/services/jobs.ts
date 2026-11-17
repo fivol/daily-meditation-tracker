@@ -1,7 +1,7 @@
 import { InputFile, type Api } from 'grammy';
 import { FieldValue } from 'firebase-admin/firestore';
 import { env } from '../config.js';
-import { chats, checkins, days, db, members, polls, users } from '../db.js';
+import { chats, checkins, days, db, mergeMap, members, polls, users } from '../db.js';
 import { log } from '../logger.js';
 import {
   awardLines,
@@ -170,7 +170,7 @@ export async function closeDay(api: Api, chatId: number, settings: ChatSettings,
 
     const patch: Record<string, unknown> = {
       ...after,
-      awards: final.updates,
+      awards: mergeMap(final.updates),
       title: maxTitle(final.awards) || FieldValue.delete(),
     };
     if (m.status === 'paused' && m.pauseUntil && m.pauseUntil <= date) {
@@ -188,7 +188,7 @@ export async function closeDay(api: Api, chatId: number, settings: ChatSettings,
   // Same batch: the day is applied to the stats exactly once, even if the bot dies right here.
   batch.set(
     chats().doc(String(chatId)),
-    { lastClosedDate: date, noLossRun, awards: Object.fromEntries(groupNew.map((id) => [id, date])) },
+    { lastClosedDate: date, noLossRun, awards: mergeMap(Object.fromEntries(groupNew.map((id) => [id, date]))) },
     { merge: true },
   );
   await batch.commit();
@@ -262,7 +262,7 @@ export async function recomputeMember(chatId: number, userId: number): Promise<v
   await db.doc(members(chatId).doc(String(userId)).path).set(
     {
       ...stats,
-      awards: Object.fromEntries(added.map(([id, date]) => [id, { date }])),
+      awards: mergeMap(Object.fromEntries(added.map(([id, date]) => [id, { date }]))),
       title: maxTitle(awards) || FieldValue.delete(),
     },
     { merge: true },
@@ -291,7 +291,7 @@ export async function recomputeGroupAwards(chatId: number): Promise<void> {
     for (const id of earnedGroupAwards({ activeSessions, noLossRun, totalMinutes })) firstMet[id] ??= d.date;
   }
   const added = Object.entries(firstMet).filter(([id]) => !settings.awards?.[id]);
-  await chats().doc(String(chatId)).set({ noLossRun, awards: Object.fromEntries(added) }, { merge: true });
+  await chats().doc(String(chatId)).set({ noLossRun, awards: mergeMap(Object.fromEntries(added)) }, { merge: true });
 }
 
 const csvCell = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;

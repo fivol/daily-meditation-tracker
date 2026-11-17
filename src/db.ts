@@ -14,6 +14,12 @@ initializeApp({
 export const db = getFirestore();
 db.settings({ ignoreUndefinedProperties: true });
 
+/**
+ * A map for a merge write, or undefined (skipped thanks to ignoreUndefinedProperties) when empty:
+ * with `merge: true` an empty map replaces the stored one instead of merging into it.
+ */
+export const mergeMap = <T>(map: Record<string, T>) => (Object.keys(map).length > 0 ? map : undefined);
+
 const typed = <T>(ref: CollectionReference) => ref as CollectionReference<T>;
 
 export const chats = () => typed<ChatSettings>(db.collection('chats'));
