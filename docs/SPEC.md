@@ -102,7 +102,10 @@ whole day, and a misclick could not be fixed. The confetti is replaced by title 
 - **"Группа: 47 из 56"** — sessions the whole group did yesterday out of the maximum possible
   (28 active members × 2). One number for "how we did together".
 - **Entry:** two lines — rank, name and title (if any); then hours and regularity over the last
-  30 days, current streak, and a warning after a missed day.
+  30 days (a single `0` when there was no practice; minutes under an hour), the streak from
+  3 days on, and a warning after a missed day.
+- **Last day:** a member who will be removed at the next close unless they practice today gets a
+  third line in their entry, and the names are repeated in a «Последний день» block at the bottom.
 - **Sorting:** practice hours in the last 30 days ↓, then 30-day regularity ↓, then total hours ↓.
   A rolling window reflects how people practice *now*: an old-timer who stopped slides down,
   someone who restarted climbs back within weeks. Newcomers are ranked like everyone else —

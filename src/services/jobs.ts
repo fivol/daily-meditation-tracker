@@ -45,6 +45,7 @@ export async function buildLeaderboard(
     members: all,
     group,
     awardLines: daySnap.data()?.awardLines ?? [],
+    missLimit: settings.missLimit,
     weekly: withWeekly ? renderWeekly(all) : undefined,
   });
 }

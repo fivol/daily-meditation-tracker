@@ -112,19 +112,29 @@ export interface LeaderboardInput {
   group: { done: number; possible: number };
   /** Titles and achievements of the day. */
   awardLines: string[];
+  missLimit: number;
   weekly?: string;
 }
 
-/** Leaderboard entry: name with the title, then hours and regularity over 30 days, streak, warning. */
-function leaderboardEntry(m: Member, place: number): string[] {
+/** A streak is worth mentioning from this length on. */
+const NOTABLE_STREAK = 3;
+
+/** Active members who will be removed at the next close unless they practice today. */
+const atRisk = (m: Member, missLimit: number) => m.status === 'active' && m.missedInRow >= missLimit - 1;
+
+/** Leaderboard entry: name with the title, then 30-day hours and regularity, streak, warnings. */
+function leaderboardEntry(m: Member, place: number, missLimit: number): string[] {
   const title = m.title ? titleAt(m.title) : undefined;
+  const minutes = recentMinutes(m);
   const details = [
-    `за 30 дней: ${hours(recentMinutes(m))}`,
-    percent(regularity(m)),
-    m.currentStreak > 0 && `🔥 ${days(m.currentStreak)} подряд`,
+    // No time means no sessions: a single zero instead of "0 ч · 0%".
+    minutes > 0 ? `за 30 дней: ${hours(minutes)} · ${percent(regularity(m))}` : 'за 30 дней: 0',
+    m.currentStreak >= NOTABLE_STREAK && `🔥 ${days(m.currentStreak)} подряд`,
     m.missedInRow > 0 && `⚠️ без практики ${days(m.missedInRow)}`,
   ].filter(Boolean);
-  return [`${place}. ${displayName(m)}${title ? ` · ${title.emoji} ${title.name}` : ''}`, `   ${details.join(' · ')}`];
+  const lines = [`${place}. ${displayName(m)}${title ? ` · ${title.emoji} ${title.name}` : ''}`, `   ${details.join(' · ')}`];
+  if (atRisk(m, missLimit)) lines.push('   ❗ без отметки сегодня бот удалит из чата');
+  return lines;
 }
 
 export function renderLeaderboard(input: LeaderboardInput): string {
@@ -141,7 +151,7 @@ export function renderLeaderboard(input: LeaderboardInput): string {
 
   if (ranked.length > 0) {
     lines.push('');
-    ranked.forEach((m, i) => lines.push(...leaderboardEntry(m, i + 1)));
+    ranked.forEach((m, i) => lines.push(...leaderboardEntry(m, i + 1, input.missLimit)));
   }
   if (paused.length > 0) {
     lines.push('', '🏕 <b>На паузе</b>');
@@ -151,6 +161,14 @@ export function renderLeaderboard(input: LeaderboardInput): string {
     }
   }
   if (input.awardLines.length > 0) lines.push('', '🏅 <b>Награды дня</b>', ...input.awardLines);
+  const leaving = ranked.filter((m) => atRisk(m, input.missLimit));
+  if (leaving.length > 0) {
+    lines.push(
+      '',
+      '❗ <b>Последний день</b>',
+      `${leaving.map(displayName).join(', ')} — если сегодня не отметиться, ночью бот удалит из чата. Вернуться можно в любой момент 🙏`,
+    );
+  }
   return lines.join('\n');
 }
 
@@ -227,7 +245,9 @@ export interface MeInput {
 }
 
 const hours = (minutes: number) =>
-  `${minutes < 600 ? String(Number((minutes / 60).toFixed(1))).replace('.', ',') : Math.round(minutes / 60)} ч`;
+  minutes < 60
+    ? `${Math.round(minutes)} мин`
+    : `${minutes < 600 ? String(Number((minutes / 60).toFixed(1))).replace('.', ',') : Math.round(minutes / 60)} ч`;
 
 /** Current title, the next one and how far it is. */
 function titleProgress(m: Member) {
