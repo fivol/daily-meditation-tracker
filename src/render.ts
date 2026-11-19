@@ -8,7 +8,7 @@ import {
 } from './awards.js';
 import { TITLES } from './config.js';
 import type { DaySessions } from './stats.js';
-import { rankMembers, recentMinutes, recentSessions, regularity } from './stats.js';
+import { averageSessionMinutes, rankMembers, recentMinutes, recentSessions, regularity } from './stats.js';
 import { dayMonth, humanDate, shortDate } from './time.js';
 import type { DayEntry, Member, Minutes, Slot } from './types.js';
 
@@ -122,13 +122,15 @@ const NOTABLE_STREAK = 3;
 /** Active members who will be removed at the next close unless they practice today. */
 const atRisk = (m: Member, missLimit: number) => m.status === 'active' && m.missedInRow >= missLimit - 1;
 
-/** Leaderboard entry: name with the title, then 30-day hours and regularity, streak, warnings. */
+/** Leaderboard entry: name with the title, then 30-day hours, regularity and average session, streak, warnings. */
 function leaderboardEntry(m: Member, place: number, missLimit: number): string[] {
   const title = m.title ? titleAt(m.title) : undefined;
   const minutes = recentMinutes(m);
   const details = [
     // No time means no sessions: a single zero instead of "0 ч · 0%".
-    minutes > 0 ? `за 30 дней: ${hours(minutes)} · ${percent(regularity(m))}` : 'за 30 дней: 0',
+    minutes > 0
+      ? `за 30 дней: ${hours(minutes)} · ${percent(regularity(m))} · ср. ${Math.round(averageSessionMinutes(m))} мин`
+      : 'за 30 дней: 0',
     m.currentStreak >= NOTABLE_STREAK && `🔥 ${days(m.currentStreak)} подряд`,
     m.missedInRow > 0 && `⚠️ без практики ${days(m.missedInRow)}`,
   ].filter(Boolean);
@@ -151,7 +153,8 @@ export function renderLeaderboard(input: LeaderboardInput): string {
 
   if (ranked.length > 0) {
     lines.push('');
-    ranked.forEach((m, i) => lines.push(...leaderboardEntry(m, i + 1, input.missLimit)));
+    // A blank line between members so the two-line entries don't run together.
+    ranked.forEach((m, i) => lines.push(...(i > 0 ? [''] : []), ...leaderboardEntry(m, i + 1, input.missLimit)));
   }
   if (paused.length > 0) {
     lines.push('', '🏕 <b>На паузе</b>');

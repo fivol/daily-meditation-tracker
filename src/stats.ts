@@ -140,12 +140,25 @@ export function withToday(member: Member, today: string, done: DaySessions, rule
   return { ...member, ...applyDay(member, today, baseStatusOf(member, today), done, rules), recent: member.recent };
 }
 
+/** Sessions possible over the recent window: 2 per active day. */
+function possibleSessions(stats: Pick<MemberStats, 'recent'>): number {
+  return 2 * stats.recent.filter((d) => d.status === 'active').length;
+}
+
 /** Regularity over the recent window: sessions / (2 × active days), 0..1. */
 export function regularity(stats: Pick<MemberStats, 'recent'>): number {
-  const active = stats.recent.filter((d) => d.status === 'active');
-  if (active.length === 0) return 0;
-  const sessions = active.reduce((sum, d) => sum + d.sessions, 0);
-  return sessions / (2 * active.length);
+  const possible = possibleSessions(stats);
+  if (possible === 0) return 0;
+  const sessions = stats.recent.filter((d) => d.status === 'active').reduce((sum, d) => sum + d.sessions, 0);
+  return sessions / possible;
+}
+
+/** Average minutes per possible session over the recent window (missed sessions count as 0). */
+export function averageSessionMinutes(stats: Pick<MemberStats, 'recent'>): number {
+  const possible = possibleSessions(stats);
+  if (possible === 0) return 0;
+  const minutes = stats.recent.filter((d) => d.status === 'active').reduce((sum, d) => sum + d.minutes, 0);
+  return minutes / possible;
 }
 
 export function recentSessions(stats: Pick<MemberStats, 'recent'>): number {
