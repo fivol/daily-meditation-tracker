@@ -20,7 +20,7 @@ Rankings exist to make it fun; the tone of every message is supportive, never sh
 | **Practiced day** | A day with ≥ 1 session. |
 | **Missed day** | A closed day with 0 sessions while the member was active (in the chat, not paused). |
 | **Active days** | Closed days since the member joined, excluding paused days and days outside the chat. |
-| **Regularity** | Over the **last 30 closed days**: `sessions / (2 × active days in that window)`, shown as %. Both morning and evening count, so 100% = both sessions every day. **The leaderboard is sorted by it.** |
+| **Regularity** | Over the **last 30 closed days**: `sessions / (2 × active days in that window)`, shown as %. Both morning and evening count, so 100% = both sessions every day. **The leaderboard breaks streak ties by it.** |
 | **Streak** | Consecutive practiced days. Paused days freeze it (neither break nor extend). |
 
 ---
@@ -109,10 +109,9 @@ whole day, and a misclick could not be fixed. The confetti is replaced by title 
   3 days on, and a warning after a missed day.
 - **Last day:** a member who will be removed at the next close unless they practice today gets a
   third line in their entry, and the names are repeated in a «Последний день» block at the bottom.
-- **Sorting:** practice hours in the last 30 days ↓, then 30-day regularity ↓, then total hours ↓.
-  A rolling window reflects how people practice *now*: an old-timer who stopped slides down,
-  someone who restarted climbs back within weeks. Newcomers are ranked like everyone else —
-  their few hours put them low naturally. Paused members are listed separately.
+- **Sorting:** current streak ↓, then 30-day regularity ↓, then hours in the last 30 days ↓, then
+  total hours ↓. The streak rewards practicing every day *now*: one missed day drops a member
+  down, a few days in a row bring them back. Paused members are listed separately.
 - **Awards of the day:** one line per member with the new title and achievements.
 - 30 entries (~60 lines) fit within Telegram's 4096-char limit and on a phone screen.
 

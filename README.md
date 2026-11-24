@@ -16,7 +16,7 @@ tap and turns honest records into gentle social support.
 
 - **Check-in = one tap** in a non-anonymous poll: `1 час` · `30 минут` · `15 минут` ·
   `Сегодня не получилось`. Changed your mind? Retract the vote and vote again.
-- **Leaderboard** sorted by practice hours over the last 30 days; each entry shows the title,
+- **Leaderboard** sorted by the current streak, then by 30-day regularity; each entry shows the title,
   30-day hours and regularity (sessions done / sessions possible) and the streak.
 - **Live progress** in a pinned message: `☀️ Сегодня: утро 18/28 · вечер 5/28`.
 - **Weekly recap** on Mondays.

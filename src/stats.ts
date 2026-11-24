@@ -169,11 +169,12 @@ export function recentMinutes(stats: Pick<MemberStats, 'recent'>): number {
   return stats.recent.reduce((sum, d) => sum + d.minutes, 0);
 }
 
-/** Leaderboard order: practice time over the recent window, then regularity, then all-time time. */
+/** Leaderboard order: current streak, then regularity, then recent and all-time practice time. */
 export function compareMembers(a: Member, b: Member): number {
   return (
-    recentMinutes(b) - recentMinutes(a) ||
+    b.currentStreak - a.currentStreak ||
     regularity(b) - regularity(a) ||
+    recentMinutes(b) - recentMinutes(a) ||
     b.minutes - a.minutes ||
     a.firstName.localeCompare(b.firstName)
   );
