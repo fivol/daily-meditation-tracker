@@ -32,7 +32,7 @@ Rankings exist to make it fun; the tone of every message is supportive, never sh
 | **04:00** | **Day close** (polls stopped, stats recalculated, removal rule applied), then yesterday's leaderboard + **morning poll** | silent |
 | **16:00** | **Evening poll** | normal |
 | **21:30** | **Reminder** pinging everyone with 0 sessions today | pings (mentions reach people even if the chat is muted) |
-| **Mon 04:00** | Weekly recap added on top of the daily leaderboard | silent |
+| **Mon 04:00** | Weekly summary (text + dashboard picture) after the daily leaderboard; monthly and yearly ones on the anniversaries of the first day | silent |
 
 Why these times:
 - Closing a day and opening the next happen at the same moment, so there is no gap: whoever
@@ -123,11 +123,12 @@ One pinned message that the bot edits on every vote — just the day's totals:
 ☀️ Сегодня: утро 18/28 · вечер 5/28
 ```
 
-### 4.3 Weekly recap (Monday 04:00)
+### 4.3 Weekly, monthly and yearly summaries
 
-Added on top of Monday's leaderboard:
-- Group: total sessions and hours for the week, % of the maximum, best day.
-- Everyone with a perfect week (14/14) and everyone who practiced every day.
+After the daily leaderboard, as separate messages: a text and a dashboard picture about the
+group's progress — the week when Sunday closes, the month and the year on the anniversaries of
+the chat's first day. They celebrate progress and never compare people.
+Full description: [SUMMARIES.md](SUMMARIES.md).
 
 ### 4.4 Titles and achievements
 
@@ -137,7 +138,8 @@ Full description: [AWARDS.md](AWARDS.md).
 
 ### 4.5 Personal stats: `/me`
 
-Reply in the chat, auto-deleted after 2 minutes (the command message is deleted too):
+Reply in the chat — the personal dashboard picture with this caption, auto-deleted after
+10 minutes (the command message is deleted too):
 
 ```
 🧘 Боря · с нами 140 дней
@@ -153,10 +155,12 @@ Reply in the chat, auto-deleted after 2 minutes (the command message is deleted 
 ### 4.6 Private chat
 
 The private chat answers only what works there: `/start` and `/help` show the rules, and `/me`
-shows detailed stats for every group the user is in — place in the leaderboard, 30- and 7-day regularity, streak and record, totals with average session length,
-practiced days out of active days, today, usual check-in times, sessions by duration for 30 days
-and a 30-day calendar. Other commands are silently ignored; the private command menu lists only
-`/me` and `/help`.
+shows detailed stats for every group the user is in — regularity and hours for 7 days, 30 days
+and all time (with growth against the window before), streak and record, totals with average
+session length, practiced days out of active days, today, usual check-in times, sessions by
+duration, a 30-day calendar and achievements — followed by the personal dashboard picture
+([SUMMARIES.md](SUMMARIES.md)). Any other text sent in private gets the same answer; the
+private command menu lists only `/me` and `/help`.
 
 ---
 
@@ -286,15 +290,15 @@ users/{userId} → { canDm }                         // started the bot in priva
   not the chat.
 - A vote change overwrites the same check-in document (`updatedAt` changes, `firstAt` stays).
 - Aggregates change only at day close: the closed day is folded into each member's stats by a
-  pure reducer (`applyDay`). The `recent` window gives 30-day regularity, the 7-day strip and
-  the weekly recap without extra reads.
+  pure reducer (`applyDay`). The `recent` window gives 30-day regularity and the 7-day strip
+  without extra reads; summaries and dashboards read the period's check-ins and day snapshots.
 - An admin `/fix` of a closed day replays the member's history with the same reducer.
 
 ### 7.4 Scheduler
 
 A tick every 30 seconds. For each chat:
 1. Close every finished day after `lastClosedDate` (catches up after downtime, in order).
-2. Run today's jobs (`morning`, `evening`, `reminder`) that are due and not yet marked in
+2. Run today's jobs (`leaderboard`, `summary`, `morning`, `evening`, `reminder`) that are due and not yet marked in
    `days/{date}.jobsDone`; then mark them. A reminder more than 3 hours late is skipped.
 
 ### 7.5 Reliability and backups
@@ -314,7 +318,7 @@ A tick every 30 seconds. For each chat:
 ## 8. Out of scope for v1
 
 - Per-user timezones (everyone uses Moscow time).
-- Mini App / web dashboard, charts as images.
+- Mini App / web dashboard.
 - Reactions as a check-in method.
 - Multiple groups (the data model already supports it; no UI for it).
 

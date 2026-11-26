@@ -82,3 +82,37 @@ export function clockFromDayStart(settings: TimeSettings, hhmm: string): number 
   const [h, m] = hhmm.split(':').map(Number);
   return (h * 60 + m - settings.dayBoundaryHour * 60 + 24 * 60) % (24 * 60);
 }
+
+/** ISO weekday: 1 = Monday … 7 = Sunday. */
+export function weekday(date: string): number {
+  return DateTime.fromISO(date).weekday;
+}
+
+export function addMonths(date: string, n: number): string {
+  return DateTime.fromISO(date).plus({ months: n }).toISODate()!;
+}
+
+/** Whole months from `start` to `date` when `date` is an exact monthly anniversary of `start`, else null. */
+export function monthsBetween(start: string, date: string): number | null {
+  const months = Math.floor(DateTime.fromISO(date).diff(DateTime.fromISO(start), 'months').months);
+  return months >= 1 && addMonths(start, months) === date ? months : null;
+}
+
+/** Monday of the week the date belongs to. */
+export function weekStart(date: string): string {
+  return addDays(date, 1 - weekday(date));
+}
+
+/** "16–22 ноября", "27 октября – 2 ноября", "15 ноября 2026 – 14 ноября 2027". */
+export function dateSpan(from: string, to: string): string {
+  const a = DateTime.fromISO(from).setLocale('ru');
+  const b = DateTime.fromISO(to).setLocale('ru');
+  if (a.year !== b.year) return `${a.toFormat('d MMMM yyyy')} – ${b.toFormat('d MMMM yyyy')}`;
+  if (a.month !== b.month) return `${a.toFormat('d MMMM')} – ${b.toFormat('d MMMM')}`;
+  return from === to ? b.toFormat('d MMMM') : `${a.toFormat('d')}–${b.toFormat('d MMMM')}`;
+}
+
+/** Local hour (0–23) of a moment. */
+export function localHour(settings: TimeSettings, iso: string): number {
+  return DateTime.fromISO(iso).setZone(settings.timezone).hour;
+}

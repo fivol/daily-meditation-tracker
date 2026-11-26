@@ -19,7 +19,10 @@ tap and turns honest records into gentle social support.
 - **Leaderboard** sorted by the current streak, then by 30-day regularity; each entry shows the title,
   30-day hours and regularity (sessions done / sessions possible) and the streak.
 - **Live progress** in a pinned message: `☀️ Сегодня: утро 18/28 · вечер 5/28`.
-- **Weekly recap** on Mondays.
+- **Summaries with dashboards:** a text and a zoomable picture about the group's progress every
+  week, every month and every year — see [docs/SUMMARIES.md](docs/SUMMARIES.md).
+- **Personal dashboard:** `/me` answers with a picture of your whole practice — last week, last
+  month, all time.
 - **Titles and achievements:** 15 titles by total hours (🌱 Искатель → ☸️ Будда) and 19 one-time
   achievements for real effort, congratulated right after the vote — see [docs/AWARDS.md](docs/AWARDS.md).
 - **Accountability:** after 3 days in a row without practice the bot removes the member and
@@ -47,7 +50,7 @@ tap and turns honest records into gentle social support.
 
 | Who | Command | Purpose |
 |---|---|---|
-| Everyone | `/me` | Personal stats (in the group); detailed stats in the bot's private chat |
+| Everyone | `/me` | Personal dashboard picture with short stats (in the group); detailed stats and the picture in the bot's private chat |
 | Everyone | `/top` | Latest leaderboard |
 | Everyone | `/pause N [reason]`, `/resume` | Pause for N days / end it |
 | Everyone | `/help` | Rules |
@@ -57,6 +60,7 @@ tap and turns honest records into gentle social support.
 | Admin | `/forgive @user` | Reset the missed-days counter |
 | Admin | `/pause @user N` | Pause someone else |
 | Admin | `/export` | CSV of all check-ins to your DM |
+| Admin | `/summary week\|month\|year` | Latest summary and dashboard to your DM (a preview, nothing is posted to the group) |
 
 ## Quick start
 
@@ -73,7 +77,7 @@ Full instructions: [docs/SETUP.md](docs/SETUP.md).
 
 ## Tech
 
-TypeScript · [grammY](https://grammy.dev) · Cloud Firestore · Luxon.
+TypeScript · [grammY](https://grammy.dev) · Cloud Firestore · Luxon · resvg (dashboards).
 The bot is stateless: all data lives in Firestore, so the host can die without losing anything.
 
 ```
@@ -82,16 +86,20 @@ src/
   config.ts           env and defaults
   db.ts               Firestore collections
   stats.ts            pure aggregation (streaks, regularity, achievement counters)
+  summary.ts          periods and aggregation for summaries and personal history
+  charts/             dashboards: SVG blocks, group and personal pictures, PNG output
   awards.ts           titles and achievements, declarative
   render.ts           all message texts
   time.ts             practice-day math (day ends at 04:00)
   handlers/           commands and Telegram events
   services/           check-ins, members, jobs, scheduler
 scripts/recompute.ts  rebuild aggregates and grant awards retroactively
+scripts/preview.ts    render the dashboards to files (`npm run preview`)
 ```
 
 ## Docs
 
 - [Setup and deployment](docs/SETUP.md)
 - [Specification](docs/SPEC.md)
+- [Summaries and dashboards](docs/SUMMARIES.md)
 - [Titles and achievements](docs/AWARDS.md)

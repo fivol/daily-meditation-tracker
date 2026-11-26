@@ -5,7 +5,7 @@ import { log } from '../logger.js';
 import { addDays, momentOf, practiceDate } from '../time.js';
 import type { ChatSettings, JobName } from '../types.js';
 import { listChats } from './chats.js';
-import { closeDay, runEvening, runLeaderboard, runMorning, runReminder } from './jobs.js';
+import { closeDay, runEvening, runLeaderboard, runMorning, runReminder, runSummaries } from './jobs.js';
 
 type Job = {
   name: JobName;
@@ -18,6 +18,7 @@ type Job = {
 // Each job sends one thing, so a retry after a failure never re-sends what already went out.
 const JOBS: Job[] = [
   { name: 'leaderboard', time: (s) => s.schedule.morning, run: runLeaderboard },
+  { name: 'summary', time: (s) => s.schedule.morning, run: runSummaries },
   { name: 'morning', time: (s) => s.schedule.morning, run: runMorning },
   { name: 'evening', time: (s) => s.schedule.evening, run: runEvening },
   { name: 'reminder', time: (s) => s.schedule.reminder, run: runReminder, staleAfterHours: 3 },

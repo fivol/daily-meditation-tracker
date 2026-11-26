@@ -7,7 +7,10 @@ function required(name: string): string {
 }
 
 export const env = {
-  botToken: required('BOT_TOKEN'),
+  /** Read on first use, so scripts that never talk to Telegram can run without it. */
+  get botToken() {
+    return required('BOT_TOKEN');
+  },
   ownerId: process.env.OWNER_ID ? Number(process.env.OWNER_ID) : undefined,
 };
 

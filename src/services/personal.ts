@@ -1,38 +1,32 @@
-import { rankMembers, withToday, type DaySessions } from '../stats.js';
+import { withToday, type DaySessions } from '../stats.js';
+import { personalHistory, type PersonalHistory } from '../summary.js';
 import { addDays, dateRange, practiceDate, usualTime } from '../time.js';
-import type { ChatSettings, Member, Minutes, Slot } from '../types.js';
-import { checkinsOfMember, doneSessions, sessionKey } from './checkins.js';
-import { listMembers } from './members.js';
+import type { ChatSettings, Member, Slot } from '../types.js';
+import { doneSessions, sessionKey } from './checkins.js';
+import { loadPersonalCheckins } from './history.js';
 
 export interface PersonalStats {
   /** Aggregates with today's sessions already counted. */
   member: Member;
   date: string;
   today: DaySessions;
+  /** Typical check-in times over the last 30 days. */
   usualTimes: Partial<Record<Slot, string>>;
   daysWithUs: number;
-  durations: Record<Minutes, number>;
-  rank: { place: number; total: number } | null;
+  /** The member's whole history: windows, weeks, calendar. */
+  history: PersonalHistory;
 }
 
 /** Everything /me shows about a member, in the group and (in more detail) in private. */
 export async function personalStats(chatId: number, settings: ChatSettings, member: Member): Promise<PersonalStats> {
   const today = practiceDate(settings);
-  const dates = dateRange(addDays(today, -30), today);
-  const [list, all] = await Promise.all([
-    checkinsOfMember(chatId, member.userId, dates).then((l) => l.filter((c) => c.status === 'done' && c.minutes)),
-    listMembers(chatId),
-  ]);
+  const done = (await loadPersonalCheckins(chatId, member.userId)).filter((c) => c.status === 'done' && c.minutes);
 
-  const todayDone = doneSessions(list).get(sessionKey(today, member.userId)) ?? {};
+  const todayDone = doneSessions(done).get(sessionKey(today, member.userId)) ?? {};
   const live = withToday(member, today, todayDone, settings);
 
-  const firstAt = (slot: Slot) => list.filter((c) => c.slot === slot).map((c) => c.firstAt);
-  const durations: Record<Minutes, number> = { 60: 0, 30: 0, 15: 0 };
-  for (const c of list) durations[c.minutes!] += 1;
-
-  const ranked = rankMembers(all);
-  const place = ranked.findIndex((m) => m.userId === member.userId);
+  const monthAgo = addDays(today, -30);
+  const firstAt = (slot: Slot) => done.filter((c) => c.slot === slot && c.date >= monthAgo).map((c) => c.firstAt);
 
   return {
     member: live,
@@ -40,7 +34,6 @@ export async function personalStats(chatId: number, settings: ChatSettings, memb
     today: todayDone,
     usualTimes: { morning: usualTime(settings, firstAt('morning')), evening: usualTime(settings, firstAt('evening')) },
     daysWithUs: dateRange(member.joinedDate, today).length,
-    durations,
-    rank: place >= 0 ? { place: place + 1, total: ranked.length } : null,
+    history: personalHistory(live, done, settings, today),
   };
 }

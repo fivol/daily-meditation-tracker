@@ -1,13 +1,17 @@
-import type { Bot, Context } from 'grammy';
+import { InputFile, type Bot, type Context } from 'grammy';
+import { personalDashboard } from '../charts/personal.js';
+import { toPng } from '../charts/png.js';
 import { DEFAULT_SETTINGS } from '../config.js';
 import { users } from '../db.js';
 import { HELP_TEXT, PRIVATE_HELP, renderMe, renderMeDetailed } from '../render.js';
 import { getChat, listChats, updateChat } from '../services/chats.js';
 import { saveCheckin } from '../services/checkins.js';
-import { buildLeaderboard, recomputeMember, sendExport } from '../services/jobs.js';
+import { buildLeaderboard, recomputeMember, sendExport, sendSummary } from '../services/jobs.js';
 import { ensureMember, getMember, updateMember } from '../services/members.js';
 import { evaluateAwards } from '../services/grants.js';
-import { personalStats } from '../services/personal.js';
+import { personalStats, type PersonalStats } from '../services/personal.js';
+import { latestPeriod, type PeriodKind } from '../summary.js';
+import { log } from '../logger.js';
 import { createProgressMessage, scheduleProgressUpdate } from '../services/progress.js';
 import { addDays, isValidDate, isValidTime, practiceDate } from '../time.js';
 import type { ChatSettings, Minutes, Schedule } from '../types.js';
@@ -16,6 +20,7 @@ import {
   deleteCommand,
   html,
   isAdmin,
+  replyPhotoTemp,
   replyTemp,
   requireChat,
   resolveTarget,
@@ -73,25 +78,38 @@ const setup: Handler = async (ctx) => {
   );
 };
 
+/** The member's personal dashboard as a PNG file. */
+const dashboardOf = (stats: PersonalStats) =>
+  new InputFile(toPng(personalDashboard(stats.member, stats.history, stats.date)), `practice-${stats.date}.png`);
+
+/** In the group: the dashboard with the short stats as its caption; plain text if the picture fails. */
 const groupMe = groupCommand(async (ctx, settings) => {
   const member = await ensureMember(ctx.chat!.id, ctx.from!, practiceDate(settings));
-  await replyTemp(ctx, renderMe(await personalStats(ctx.chat!.id, settings, member)));
+  const stats = await personalStats(ctx.chat!.id, settings, member);
+  try {
+    await replyPhotoTemp(ctx, dashboardOf(stats), renderMe(stats));
+  } catch (err) {
+    log.error(`Chat ${ctx.chat!.id}: personal dashboard of ${member.userId} failed`, err);
+    await replyTemp(ctx, renderMe(stats));
+  }
 });
 
-/** In private: detailed stats for every group the user takes part in. */
+/** In private: detailed stats and the dashboard for every group the user takes part in. */
 const privateMe: Handler = async (ctx) => {
-  const blocks: string[] = [];
+  let found = false;
   for (const { chatId, settings } of await listChats()) {
     const member = await getMember(chatId, ctx.from!.id);
     if (!member) continue;
+    found = true;
     const chat = await ctx.api.getChat(chatId).catch(() => null);
     const chatTitle = chat && 'title' in chat && chat.title ? chat.title : 'группа';
-    blocks.push(renderMeDetailed({ ...(await personalStats(chatId, settings, member)), chatTitle }));
+    const stats = await personalStats(chatId, settings, member);
+    await ctx.reply(renderMeDetailed({ ...stats, chatTitle }), html);
+    await ctx
+      .replyWithPhoto(dashboardOf(stats))
+      .catch((err) => log.error(`Personal dashboard of ${member.userId} failed`, err));
   }
-  await ctx.reply(
-    blocks.length ? blocks.join('\n\n— — —\n\n') : 'Статистики пока нет: отметься в опросе в группе 🙏',
-    html,
-  );
+  if (!found) await ctx.reply('Статистики пока нет: отметься в опросе в группе 🙏', html);
 };
 
 const me: Handler = (ctx) => (ctx.chat?.type === 'private' ? privateMe(ctx) : groupMe(ctx));
@@ -213,6 +231,22 @@ const exportCommand = groupCommand(async (ctx) => {
   }
 }, true);
 
+const PERIOD_KINDS: PeriodKind[] = ['week', 'month', 'year'];
+
+/** Admin preview: the summary of the latest week / month / year, sent to the admin's private chat. */
+const summaryCommand = groupCommand(async (ctx, settings) => {
+  const kind = (args(ctx)[0] ?? 'week') as PeriodKind;
+  if (!PERIOD_KINDS.includes(kind)) return replyTemp(ctx, 'Формат: /summary week|month|year');
+  if (settings.lastClosedDate < settings.startDate) return replyTemp(ctx, 'Итоги появятся после первого закрытого дня.');
+  try {
+    const period = latestPeriod(kind, settings.startDate, settings.lastClosedDate);
+    await sendSummary(ctx.api, ctx.chat!.id, settings, period, ctx.from!.id);
+    await replyTemp(ctx, '📎 Отправил итоги в личку.');
+  } catch {
+    await replyTemp(ctx, `Не смог написать в личку — открой @${ctx.me.username} и нажми «Start».`);
+  }
+}, true);
+
 export function registerCommands(bot: Bot): void {
   bot.command('start', start);
   bot.command('help', help);
@@ -225,4 +259,7 @@ export function registerCommands(bot: Bot): void {
   bot.command('forgive', forgive);
   bot.command('settings', settingsCommand);
   bot.command('export', exportCommand);
+  bot.command('summary', summaryCommand);
+  // Anything else written to the bot in private is answered with the personal stats.
+  bot.chatType('private').on('message:text', privateMe);
 }

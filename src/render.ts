@@ -9,7 +9,8 @@ import {
 import { TITLES } from './config.js';
 import type { DaySessions } from './stats.js';
 import { averageSessionMinutes, rankMembers, recentMinutes, recentSessions, regularity } from './stats.js';
-import { dayMonth, humanDate, shortDate } from './time.js';
+import type { GroupSummary, PeriodKind, PersonalHistory, PersonalWindow } from './summary.js';
+import { dateSpan, dayMonth, humanDate, shortDate } from './time.js';
 import type { DayEntry, Member, Minutes, Slot } from './types.js';
 
 export const POLL_OPTIONS: { text: string; minutes: Minutes | null }[] = [
@@ -113,7 +114,6 @@ export interface LeaderboardInput {
   /** Titles and achievements of the day. */
   awardLines: string[];
   missLimit: number;
-  weekly?: string;
 }
 
 /** A streak is worth mentioning from this length on. */
@@ -149,7 +149,6 @@ export function renderLeaderboard(input: LeaderboardInput): string {
     const { done, possible } = input.group;
     lines.push(`Группа: ${done} из ${possible} сессий (${percent(done / possible)}) 🙏`);
   }
-  if (input.weekly) lines.push('', input.weekly);
 
   if (ranked.length > 0) {
     lines.push('');
@@ -175,45 +174,66 @@ export function renderLeaderboard(input: LeaderboardInput): string {
   return lines.join('\n');
 }
 
-/** Weekly recap built from the last 7 closed days of every member. */
-export function renderWeekly(members: Member[]): string {
-  const tracked = members.filter((m) => m.status !== 'removed');
-  const week = tracked.map((m) => ({ m, days: m.recent.slice(-7) }));
+const PERIOD_WORDS: Record<PeriodKind, { title: string; joys: string; perfect: string; prev: string; than: string; each: string }> = {
+  week: { title: 'Итоги недели', joys: 'Радости недели', perfect: 'Все сессии недели', prev: 'к прошлой неделе', than: 'чем на прошлой неделе', each: 'У каждого за неделю' },
+  month: { title: 'Итоги месяца', joys: 'Радости месяца', perfect: 'Все сессии месяца', prev: 'к прошлому месяцу', than: 'чем в прошлом месяце', each: 'У каждого за месяц' },
+  year: { title: 'Итоги года', joys: 'Радости года', perfect: 'Все сессии года', prev: 'к прошлому году', than: 'чем в прошлом году', each: 'У каждого за год' },
+};
 
-  let sessions = 0;
-  let minutes = 0;
-  let possible = 0;
-  const byDate = new Map<string, number>();
-  for (const { days } of week) {
-    for (const d of days) {
-      sessions += d.sessions;
-      minutes += d.minutes;
-      if (d.status === 'active') possible += 2;
-      byDate.set(d.date, (byDate.get(d.date) ?? 0) + d.sessions);
-    }
+const sessionsText = (n: number) => `${n} ${plural(n, 'сессия', 'сессии', 'сессий')}`;
+const peopleText = (n: number) => `${n} ${plural(n, 'человек', 'человека', 'человек')}`;
+
+/** More award lines than this are summed up as a count instead of listed. */
+const MAX_AWARD_LINES = 30;
+
+/**
+ * Summary of a week, a month or a year: what the group did together, what there is to be glad
+ * about, and everyone's own period. Names are alphabetical and nobody is ranked.
+ */
+export function renderSummary(s: GroupSummary): string {
+  const words = PERIOD_WORDS[s.period.kind];
+  const { totals, prev } = s;
+  const lines = [`📅 <b>${words.title} · ${dateSpan(s.period.from, s.period.to)}</b>`, '', '🪷 <b>Вместе</b>'];
+  lines.push(`${sessionsText(totals.sessions)} · ${hours(totals.minutes)} практики`);
+
+  const share = totals.possible > 0 ? totals.sessions / totals.possible : 0;
+  const gain = prev ? Math.round(100 * (share - prev.sessions / prev.possible)) : 0;
+  lines.push(`Регулярность: ${percent(share)} (${totals.sessions} из ${totals.possible})${gain > 0 ? ` · ↑ +${gain} п.п. ${words.prev}` : ''}`);
+  if (prev && totals.minutes > prev.minutes) lines.push(`Времени на подушке — на ${hours(totals.minutes - prev.minutes)} больше, ${words.than} 🌱`);
+  lines.push(`Практиковали: ${peopleText(totals.people)}`);
+  const best = [...s.days].filter((d) => d.possible > 0).sort((a, b) => b.sessions / b.possible - a.sessions / a.possible)[0];
+  if (best && s.days.length > 1) lines.push(`Самый дружный день: ${humanDate(best.date)} — ${percent(best.sessions / best.possible)}`);
+  lines.push(`С первого дня группы: ${hours(s.totalMinutes)} вместе`);
+
+  const practiced = s.people.filter((p) => p.sessions > 0);
+  const names = (list: typeof practiced) => list.map((p) => displayName(p.member)).join(', ');
+  const wholePeriod = practiced.filter((p) => p.activeDays === s.days.length);
+  const perfect = wholePeriod.filter((p) => p.sessions === 2 * p.activeDays);
+  const everyDay = wholePeriod.filter((p) => p.practicedDays === p.activeDays && !perfect.includes(p));
+  const grew = practiced.filter((p) => p.prevMinutes !== null && p.minutes > p.prevMinutes);
+  const joys: string[] = [];
+  if (perfect.length) joys.push(`💎 ${words.perfect}: ${names(perfect)}`);
+  if (everyDay.length) joys.push(`🌿 Каждый день на подушке: ${names(everyDay)}`);
+  if (grew.length) {
+    joys.push(`🌱 Прибавили ${words.prev}: ${grew.map((p) => `${displayName(p.member)} (+${hours(p.minutes - p.prevMinutes!)})`).join(', ')}`);
   }
-  const best = [...byDate.entries()].sort((a, b) => b[1] - a[1])[0];
-  const perfect = week.filter(({ days }) => days.length === 7 && days.every((d) => d.sessions === 2));
-  const everyDay = week.filter(
-    ({ days }) => days.length === 7 && days.every((d) => d.sessions > 0) && !perfect.some((p) => p.days === days),
-  );
+  if (s.streaks.week > 0) joys.push(`🔥 На серии от 7 дней: ${peopleText(s.streaks.week)}`);
+  if (s.streaks.month > 0) joys.push(`🌙 На серии от 30 дней: ${peopleText(s.streaks.month)}`);
+  joys.push(...s.groupAwards.map(groupAwardLine));
+  if (joys.length) lines.push('', `✨ <b>${words.joys}</b>`, ...joys);
 
-  const lines = ['📅 <b>Итоги недели</b>'];
-  if (possible > 0) {
-    lines.push(
-      `Вместе: ${sessions} ${plural(sessions, 'сессия', 'сессии', 'сессий')} · ${Math.round(minutes / 60)} ч · ${percent(sessions / possible)} от максимума`,
-    );
+  const earned = s.people.flatMap((p) => awardLines(p.member, p.awards));
+  if (earned.length > MAX_AWARD_LINES) {
+    const count = s.people.reduce((sum, p) => sum + p.awards.length, 0);
+    lines.push('', `🏅 Новых званий и достижений: ${count}`);
+  } else if (earned.length) {
+    lines.push('', '🏅 <b>Новые звания и достижения</b>', ...earned);
   }
-  if (best) lines.push(`Лучший день: ${humanDate(best[0])} (${best[1]})`);
-  if (perfect.length) lines.push(`💎 Идеальная неделя (14/14): ${perfect.map(({ m }) => displayName(m)).join(', ')}`);
-  if (everyDay.length) lines.push(`✨ Практика каждый день: ${everyDay.map(({ m }) => displayName(m)).join(', ')}`);
 
-  const weekDates = new Set([...byDate.keys()]);
-  const earned = tracked.flatMap((m) => {
-    const ids = Object.entries(m.awards ?? {}).filter(([, a]) => weekDates.has(a.date)).map(([id]) => id);
-    return ids.length ? awardLines(m, ids) : [];
-  });
-  if (earned.length) lines.push('', '🏅 <b>Новые звания и достижения за неделю</b>', ...earned);
+  if (practiced.length) {
+    lines.push('', `🧘 <b>${words.each}</b>`);
+    lines.push(...practiced.map((p) => `${displayName(p.member)} — ${sessionsText(p.sessions)} · ${hours(p.minutes)}`));
+  }
   return lines.join('\n');
 }
 
@@ -245,6 +265,7 @@ export interface MeInput {
   today: DaySessions;
   usualTimes: Partial<Record<Slot, string>>;
   daysWithUs: number;
+  history: PersonalHistory;
 }
 
 const hours = (minutes: number) =>
@@ -274,7 +295,8 @@ function titleLine(m: Member): string {
 
 const sessionMark = (today: DaySessions, slot: Slot) => (today[slot] ? `✅ ${today[slot]!.minutes} мин` : '—');
 
-export function renderMe({ member: m, today, usualTimes, daysWithUs }: MeInput): string {
+export function renderMe({ member: m, today, usualTimes, daysWithUs, history }: MeInput): string {
+  const week = history.windows.week;
   const recentDone = recentSessions(m);
   const recentPossible = 2 * m.recent.filter((d) => d.status === 'active').length;
   const mark = (slot: Slot) => sessionMark(today, slot);
@@ -284,6 +306,7 @@ export function renderMe({ member: m, today, usualTimes, daysWithUs }: MeInput):
     recentPossible > 0
       ? `📈 Регулярность за 30 дней: ${percent(regularity(m))} (${recentDone} из ${recentPossible} сессий)`
       : '📈 Регулярность появится после первого закрытого дня (в 04:00)',
+    ...(week.possible > 0 ? [`🗓 За 7 дней: ${percent(week.sessions / week.possible)} · ${hours(week.minutes)}${growth(week)}`] : []),
     `📿 Сессий: ${m.sessions} (утро ${m.morningSessions} · вечер ${m.eveningSessions}) · ${Math.round(m.minutes / 60)} ч`,
     `📅 Дней с практикой: ${m.practicedDays} · обе практики: ${m.fullDays}`,
     `🔥 Серия: ${days(m.currentStreak)} (рекорд — ${m.bestStreak})`,
@@ -300,26 +323,26 @@ export function renderMe({ member: m, today, usualTimes, daysWithUs }: MeInput):
 
 export interface DetailedMeInput extends MeInput {
   chatTitle: string;
-  /** Place in the leaderboard; null when not ranked (paused). */
-  rank: { place: number; total: number } | null;
-  /** Sessions of the last 30 days by reported duration. */
-  durations: Record<Minutes, number>;
 }
 
-/** Regularity of a window as "85% (51 из 60)". */
-function ratio(recent: DayEntry[]): string | null {
-  const possible = 2 * recent.filter((d) => d.status === 'active').length;
-  if (possible === 0) return null;
-  const done = recentSessions({ recent });
-  return `${percent(done / possible)} (${done} из ${possible})`;
+/** " · ↑ +1,5 ч" when the window grew against the one before it; dips are not mentioned. */
+function growth(w: PersonalWindow): string {
+  return w.prevMinutes !== null && w.minutes > w.prevMinutes ? ` · ↑ +${hours(w.minutes - w.prevMinutes)}` : '';
 }
+
+/** One window of practice: "86% (12 из 14) · 11,5 ч · ↑ +1,5 ч". */
+function windowLine(label: string, w: PersonalWindow): string {
+  const share = w.possible > 0 ? `${percent(w.sessions / w.possible)} (${w.sessions} из ${w.possible}) · ` : '';
+  return `${label}: ${share}${hours(w.minutes)}${growth(w)}`;
+}
+
+const WEEKDAYS = ['понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота', 'воскресенье'];
 
 /** Full personal stats for the private chat. */
 export function renderMeDetailed(input: DetailedMeInput): string {
-  const { member: m, date, today, usualTimes, daysWithUs, chatTitle, rank, durations } = input;
+  const { member: m, date, today, usualTimes, daysWithUs, chatTitle, history } = input;
+  const { durations, windows } = history;
   const mark = (slot: Slot) => sessionMark(today, slot);
-  const month = ratio(m.recent);
-  const week = ratio(m.recent.slice(-7));
   const { current, next, left } = titleProgress(m);
 
   const lines = [
@@ -333,13 +356,15 @@ export function renderMeDetailed(input: DetailedMeInput): string {
     const filled = Math.min(10, Math.floor((10 * (m.minutes / 60 - from)) / (next.hours - from)));
     lines.push(`До ${next.emoji} ${next.genitive}: ${'▰'.repeat(filled)}${'▱'.repeat(10 - filled)} ${hours(left)}`);
   }
-  lines.push(
-    '',
-    '📈 <b>Регулярность</b>',
-    month ? `За 30 дней: ${month} · за 7 дней: ${week}` : 'Появится после первого закрытого дня (в 04:00)',
-  );
-  if (rank) lines.push(`🏆 Место в таблице: ${rank.place} из ${rank.total}`);
-  else if (m.status === 'paused') lines.push(`🏕 На паузе${m.pauseUntil ? ` до ${shortDate(m.pauseUntil)}` : ''}`);
+  lines.push('', '📈 <b>Регулярность и время</b>');
+  if (windows.month.possible > 0) {
+    lines.push(windowLine('7 дней', windows.week), windowLine('30 дней', windows.month), windowLine('Всё время', windows.all));
+    const perDay = Math.round(windows.month.minutes / m.recent.length);
+    lines.push(`В среднем за 30 дней — ${perDay} мин в день`);
+  } else {
+    lines.push('Появится после первого закрытого дня (в 04:00)');
+  }
+  if (m.status === 'paused') lines.push(`🏕 На паузе${m.pauseUntil ? ` до ${shortDate(m.pauseUntil)}` : ''}`);
   lines.push(`🔥 Серия: ${days(m.currentStreak)} · рекорд ${days(m.bestStreak)}`);
   if (m.missedInRow > 0) lines.push(`⚠️ Без практики ${days(m.missedInRow)} подряд`);
 
@@ -358,7 +383,11 @@ export function renderMeDetailed(input: DetailedMeInput): string {
   const byDuration = ([60, 30, 15] as const)
     .filter((min) => durations[min] > 0)
     .map((min) => `${min === 60 ? '1 ч' : `${min} мин`} ×${durations[min]}`);
-  if (byDuration.length) lines.push(`⏱ За 30 дней: ${byDuration.join(' · ')}`);
+  if (byDuration.length) lines.push(`⏱ Сессии: ${byDuration.join(' · ')}`);
+  const favourite = Math.max(...history.weekdays);
+  if (m.practicedDays >= 14 && favourite > 0) lines.push(`📆 Чаще всего практикуешь: ${WEEKDAYS[history.weekdays.indexOf(favourite)]}`);
+  const bestWeek = Math.max(...history.weeks.map((w) => w.morning + w.evening));
+  if (history.weeks.filter((w) => w.sessions > 0).length > 1) lines.push(`🌟 Самая насыщенная неделя из последних: ${hours(bestWeek)}`);
 
   if (m.recent.length > 0) {
     const calendar = strip(m.recent, 30).match(/.{1,10}/gu) ?? [];
@@ -432,9 +461,11 @@ const RULES = `🪷 <b>Как это работает</b>
 • В 04:00 день закрывается: итоги вчерашнего дня и сразу утренний опрос. В 16:00 — вечерний. Отметься, когда помедитируешь: 1 час, 30 или 15 минут. Ошибся — «Retract vote» и проголосуй заново.
 • Опросы открыты до 04:00 следующего дня.
 • В 21:30 бот напоминает тем, у кого сегодня ещё ни одной сессии.
+• Раз в неделю, в месяц и в год — итоги группы: сообщение и картинка о том, как мы растём вместе.
 • Таблица отсортирована по часам практики за последние 30 дней. Рядом — регулярность: доля сделанных сессий (утро + вечер) за те же 30 дней.
 • Три дня подряд без практики — бот убирает из чата. Вернуться можно в любой момент, статистика сохраняется.
-• Звания растут с часами практики, достижения дают один раз за особые усилия. Поздравление приходит сразу после голоса; своё звание, прогресс и все достижения — в /me в личке у бота.`;
+• Звания растут с часами практики, достижения дают один раз за особые усилия. Поздравление приходит сразу после голоса; своё звание, прогресс и все достижения — в /me в личке у бота.
+• /me присылает личную картинку: вся твоя практика за неделю, месяц и всё время.`;
 
 export const HELP_TEXT = `${RULES}
 
@@ -445,9 +476,9 @@ export const HELP_TEXT = `${RULES}
 /resume — закончить паузу
 
 <b>Для админов</b>
-/setup · /settings · /fix · /forgive · /pause @user N · /export`;
+/setup · /settings · /fix · /forgive · /pause @user N · /export · /summary`;
 
 /** Help in the private chat: only what works there. */
 export const PRIVATE_HELP = `${RULES}
 
-/me — подробная статистика`;
+/me — подробная статистика и картинка твоей практики`;

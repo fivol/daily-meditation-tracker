@@ -126,7 +126,7 @@ export interface Checkin {
   wasSkipped?: boolean;
 }
 
-export type JobName = 'leaderboard' | 'morning' | 'evening' | 'reminder';
+export type JobName = 'leaderboard' | 'summary' | 'morning' | 'evening' | 'reminder';
 
 export interface PollRef {
   messageId: number;

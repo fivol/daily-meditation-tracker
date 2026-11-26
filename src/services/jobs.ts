@@ -12,26 +12,25 @@ import {
   renderReminder,
   renderRemoval,
   renderRemovalDm,
-  renderWeekly,
+  renderSummary,
 } from '../render.js';
+import { groupDashboard } from '../charts/group.js';
+import { toPng } from '../charts/png.js';
+import { periodsEndingOn, summarize, type Period } from '../summary.js';
 import { earnedAwards, earnedGroupAwards, maxTitle, nextNoLossRun } from '../awards.js';
 import { applyDay, baseStatusOf, emptyStats } from '../stats.js';
 import { addDays, isMonday } from '../time.js';
 import type { AwardRecord, ChatSettings, DayStatus, Member, Slot } from '../types.js';
 import { getChat } from './chats.js';
 import { checkinsOfDay, checkinsOfMember, doneSessions, sessionKey } from './checkins.js';
+import { loadHistory } from './history.js';
 import { getMember, listMembers, updateMember } from './members.js';
 import { updateProgress } from './progress.js';
 
 const silentHtml = { parse_mode: 'HTML', disable_notification: true } as const;
 
-/** Leaderboard for a closed day (optionally with the weekly recap on top). */
-export async function buildLeaderboard(
-  chatId: number,
-  settings: ChatSettings,
-  date: string,
-  withWeekly = false,
-): Promise<string> {
+/** Leaderboard for a closed day. */
+export async function buildLeaderboard(chatId: number, settings: ChatSettings, date: string): Promise<string> {
   const [all, daySnap] = await Promise.all([listMembers(chatId), days(chatId).doc(date).get()]);
   const group = { done: 0, possible: 0 };
   for (const m of all) {
@@ -46,7 +45,6 @@ export async function buildLeaderboard(
     group,
     awardLines: daySnap.data()?.awardLines ?? [],
     missLimit: settings.missLimit,
-    weekly: withWeekly ? renderWeekly(all) : undefined,
   });
 }
 
@@ -73,16 +71,46 @@ async function sendPoll(api: Api, chatId: number, date: string, slot: Slot, noti
     .catch((err) => log.error(`Chat ${chatId}: pinning the ${slot} poll failed`, err));
 }
 
-/** Start of the day (04:00, right after the close) — yesterday's leaderboard, plus the weekly recap on Mondays. */
+/** Start of the day (04:00, right after the close) — yesterday's leaderboard. */
 export async function runLeaderboard(api: Api, chatId: number, settings: ChatSettings, date: string) {
   const yesterday = addDays(date, -1);
-  const monday = isMonday(date);
   if (yesterday >= settings.startDate) {
-    const text = await buildLeaderboard(chatId, settings, yesterday, monday);
-    await api.sendMessage(chatId, text, silentHtml);
+    await api.sendMessage(chatId, await buildLeaderboard(chatId, settings, yesterday), silentHtml);
   }
-  if (monday && env.ownerId) {
+  if (isMonday(date) && env.ownerId) {
     await sendExport(api, chatId, env.ownerId).catch((err) => log.error('Weekly export failed', err));
+  }
+}
+
+/**
+ * Sends the summary of a period to `target` (the group itself, or an admin's private chat):
+ * the text first, then the dashboard picture as a separate message. A failed picture is only
+ * logged, so a retry can't post the text twice.
+ */
+export async function sendSummary(api: Api, chatId: number, settings: ChatSettings, period: Period, target = chatId) {
+  const summary = summarize(period, await loadHistory(chatId, period), settings);
+  if (summary.totals.possible === 0) return;
+  await api.sendMessage(target, renderSummary(summary), silentHtml);
+  try {
+    const chat = await api.getChat(chatId);
+    const title = 'title' in chat && chat.title ? chat.title : 'Наша практика';
+    const png = toPng(groupDashboard(summary, title));
+    await api.sendPhoto(target, new InputFile(png, `${period.kind}-${period.to}.png`), { disable_notification: true });
+  } catch (err) {
+    log.error(`Chat ${chatId}: the ${period.kind} dashboard failed`, err);
+  }
+}
+
+/**
+ * Right after the leaderboard — summaries of the periods that ended yesterday: the week on
+ * Sunday's close, the month and the year on the anniversaries of the chat's first day.
+ * Never throws: a broken summary must not hold back the morning poll.
+ */
+export async function runSummaries(api: Api, chatId: number, settings: ChatSettings, date: string) {
+  for (const period of periodsEndingOn(settings.startDate, addDays(date, -1))) {
+    await sendSummary(api, chatId, settings, period).catch((err) =>
+      log.error(`Chat ${chatId}: the ${period.kind} summary failed`, err),
+    );
   }
 }
 
