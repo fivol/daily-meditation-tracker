@@ -42,7 +42,8 @@ chat — a way to look at it without posting to the group.
 
 `/me` works in the bot's private chat: the detailed text, then one album (gallery) with the
 dashboard and the share cards, for every group the user is in. Any other message written to the
-bot in private gets the same answer. In the group `/me` only points to the private chat.
+bot in private gets the same answer. In the group `/me` posts the same album for 2 minutes,
+captioned with a link that opens the detailed stats in the private chat.
 
 The picture covers the whole time with us: total hours, sessions, streak and practiced days;
 regularity rings and hours for the last 7 days, the last 30 days and all time (with growth

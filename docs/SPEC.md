@@ -139,9 +139,10 @@ Full description: [AWARDS.md](AWARDS.md).
 
 ### 4.5 Personal stats: `/me`
 
-Personal stats live in the bot's private chat. In the group `/me` only answers with a short
-note and a link that opens the private chat and shows the stats there (`t.me/<bot>?start=me`);
-the note is auto-deleted after 2 minutes, the command message right away.
+Detailed personal stats live in the bot's private chat. In the group `/me` posts the member's
+gallery (dashboard + share cards) with a one-line caption: the name and a link that opens the
+private chat and shows the detailed stats there (`t.me/<bot>?start=me`). The album is
+auto-deleted after 2 minutes, the command message right away.
 
 `/top` re-posts the current leaderboard on demand.
 

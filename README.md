@@ -50,7 +50,7 @@ tap and turns honest records into gentle social support.
 
 | Who | Command | Purpose |
 |---|---|---|
-| Everyone | `/me` | In the bot's private chat: detailed stats, the personal dashboard and a share card for social media. In the group it only points to the private chat |
+| Everyone | `/me` | In the bot's private chat: detailed stats, the personal dashboard and a share card for social media. In the group: the same pictures for 2 minutes, with a link to the detailed stats in private |
 | Everyone | `/top` | Latest leaderboard |
 | Everyone | `/pause N [reason]`, `/resume` | Pause for N days / end it |
 | Everyone | `/help` | Rules |

@@ -4,7 +4,7 @@ import { toPng } from '../charts/png.js';
 import { shareCards } from '../charts/share.js';
 import { DEFAULT_SETTINGS } from '../config.js';
 import { users } from '../db.js';
-import { HELP_TEXT, PRIVATE_HELP, renderMeDetailed } from '../render.js';
+import { displayName, HELP_TEXT, PRIVATE_HELP, renderMeDetailed } from '../render.js';
 import { getChat, listChats, updateChat } from '../services/chats.js';
 import { saveCheckin } from '../services/checkins.js';
 import { buildLeaderboard, recomputeMember, sendExport, sendSummary } from '../services/jobs.js';
@@ -84,16 +84,36 @@ const setup: Handler = async (ctx) => {
 const ME_PAYLOAD = 'me';
 
 /** The member's pictures as one album: the big dashboard, then the share cards for social media. */
-function gallery(stats: PersonalStats) {
+function gallery(stats: PersonalStats, caption?: string) {
   const svgs = [personalDashboard(stats.member, stats.history, stats.date), ...shareCards(stats.member, stats.history)];
-  return svgs.map((svg, i) => InputMediaBuilder.photo(new InputFile(toPng(svg), `practice-${stats.date}-${i + 1}.png`)));
+  return svgs.map((svg, i) =>
+    InputMediaBuilder.photo(
+      new InputFile(toPng(svg), `practice-${stats.date}-${i + 1}.png`),
+      i === 0 && caption ? { caption, ...html } : {},
+    ),
+  );
 }
 
-/** In the group /me does nothing but point to the private chat: personal stats are personal. */
+/** How long the group copy of the gallery stays in the chat. */
+const GROUP_GALLERY_MS = 2 * 60 * 1000;
+
+/**
+ * In the group /me posts the member's gallery for a couple of minutes, with a link that opens
+ * the detailed stats in the private chat.
+ */
 const groupMe: Handler = async (ctx) => {
   await deleteCommand(ctx);
+  const settings = await requireChat(ctx);
+  if (!settings || !ctx.from) return;
+  const member = await getMember(ctx.chat!.id, ctx.from.id);
+  if (!member) return replyTemp(ctx, 'Статистики пока нет: отметься в опросе 🙏');
+  const stats = await personalStats(ctx.chat!.id, settings, member);
   const link = `https://t.me/${ctx.me.username}?start=${ME_PAYLOAD}`;
-  await replyTemp(ctx, `🧘 Личная статистика — в личных сообщениях бота. Выполни /me там: <a href="${link}">открыть @${ctx.me.username}</a>`);
+  const caption = `🧘 ${displayName(member)} · <a href="${link}">подробная статистика в личке</a>`;
+  const sent = await ctx.replyWithMediaGroup(gallery(stats, caption), { disable_notification: true });
+  setTimeout(() => {
+    for (const m of sent) ctx.api.deleteMessage(m.chat.id, m.message_id).catch(() => undefined);
+  }, GROUP_GALLERY_MS);
 };
 
 /** In private: detailed stats and the pictures for every group the user takes part in. */
