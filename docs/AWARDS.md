@@ -52,7 +52,8 @@ placed; admin fixes don't count for time-based achievements but count for all ot
 | Secret | 🦉 Сова | 5 evening sessions checked in after midnight |
 | | 🛟 Спасённый день | 5 times a "didn't practice" vote replaced by a session |
 
-Secret achievements show as "❓ Секретное" until earned.
+`/me` lists only the achievements already earned, with their dates; conditions of the rest live
+in this file, not in the bot.
 
 ## Group achievements
 
@@ -71,7 +72,7 @@ did both sessions), 🤝 Неделя без потерь (7 closed days in a ro
 - **At day close** "Кремень" and group achievements are evaluated; all awards of the day appear in
   the next morning's leaderboard.
 - **Where shown:** title emoji before the name in the leaderboard (sorting unchanged); weekly recap
-  lists the week's awards; `/me` (private chat) shows the title with a progress bar and the full achievement list.
+  lists the week's awards; `/me` (private chat) shows the title with a progress bar and the earned achievements.
 
 ## Data
 

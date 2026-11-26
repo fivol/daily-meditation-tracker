@@ -4,7 +4,6 @@ import {
   GROUP_AWARDS,
   titleAt,
   titleLevelOf,
-  type AwardState,
 } from './awards.js';
 import { TITLES } from './config.js';
 import type { DaySessions } from './stats.js';
@@ -315,7 +314,7 @@ const WEEKDAYS = ['понедельник', 'вторник', 'среда', 'ч�
 
 /** Full personal stats for the private chat. */
 export function renderMeDetailed(input: DetailedMeInput): string {
-  const { member: m, date, today, usualTimes, daysWithUs, chatTitle, history } = input;
+  const { member: m, today, usualTimes, daysWithUs, chatTitle, history } = input;
   const { durations, windows } = history;
   const mark = (slot: Slot) => sessionMark(today, slot);
   const { current, next, left } = titleProgress(m);
@@ -370,23 +369,19 @@ export function renderMeDetailed(input: DetailedMeInput): string {
     lines.push('● обе · ◐ одна · ○ нет · · пауза');
   }
 
-  lines.push('', ...achievementsList(m, { ...m, date, removedOn: m.removedOn }));
+  lines.push(...achievementsList(m));
   return lines.join('\n');
 }
 
-/** Earned achievements with dates, then locked ones with conditions and progress; secrets hidden. */
-function achievementsList(m: Member, state: AwardState): string[] {
+/** Earned achievements with dates; nothing about the ones not earned yet. */
+function achievementsList(m: Member): string[] {
   const awards = m.awards ?? {};
   const earned = ACHIEVEMENTS.filter((a) => awards[a.id]);
-  const locked = ACHIEVEMENTS.filter((a) => !awards[a.id]);
+  if (!earned.length) return [];
   return [
-    `🏅 <b>Достижения: ${earned.length} из ${ACHIEVEMENTS.length}</b>`,
-    ...earned.map((a) => `✅ ${a.emoji} ${a.name} · ${dayMonth(awards[a.id].date)}`),
-    ...locked.map((a) => {
-      if (a.secret) return '❓ Секретное';
-      const progress = a.progress ? ` (${a.progress(state)})` : '';
-      return `🔒 ${a.emoji} ${a.name} — ${a.condition}${progress}`;
-    }),
+    '',
+    `🏅 <b>Достижения: ${earned.length}</b>`,
+    ...earned.map((a) => `${a.emoji} ${a.name} · ${dayMonth(awards[a.id].date)}`),
   ];
 }
 
