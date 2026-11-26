@@ -8,13 +8,14 @@ import {
 } from './awards.js';
 import { TITLES } from './config.js';
 import type { DaySessions } from './stats.js';
-import { averageSessionMinutes, rankMembers, recentMinutes, recentSessions, regularity } from './stats.js';
+import { averageSessionMinutes, rankMembers, recentMinutes, regularity } from './stats.js';
 import type { GroupSummary, PeriodKind, PersonalHistory, PersonalWindow } from './summary.js';
 import { dateSpan, dayMonth, humanDate, shortDate } from './time.js';
-import type { DayEntry, Member, Minutes, Slot } from './types.js';
+import { MINUTES, type DayEntry, type Member, type Minutes, type Slot } from './types.js';
 
 export const POLL_OPTIONS: { text: string; minutes: Minutes | null }[] = [
   { text: '🧘 1 час', minutes: 60 },
+  { text: '🪷 45 минут', minutes: 45 },
   { text: '🌿 30 минут', minutes: 30 },
   { text: '🌱 15 минут', minutes: 15 },
   { text: '🙏 Сегодня не получилось', minutes: null },
@@ -295,32 +296,6 @@ function titleLine(m: Member): string {
 
 const sessionMark = (today: DaySessions, slot: Slot) => (today[slot] ? `✅ ${today[slot]!.minutes} мин` : '—');
 
-export function renderMe({ member: m, today, usualTimes, daysWithUs, history }: MeInput): string {
-  const week = history.windows.week;
-  const recentDone = recentSessions(m);
-  const recentPossible = 2 * m.recent.filter((d) => d.status === 'active').length;
-  const mark = (slot: Slot) => sessionMark(today, slot);
-  const lines = [
-    `🧘 <b>${displayName(m)}</b> · с нами ${days(daysWithUs)}`,
-    titleLine(m),
-    recentPossible > 0
-      ? `📈 Регулярность за 30 дней: ${percent(regularity(m))} (${recentDone} из ${recentPossible} сессий)`
-      : '📈 Регулярность появится после первого закрытого дня (в 04:00)',
-    ...(week.possible > 0 ? [`🗓 За 7 дней: ${percent(week.sessions / week.possible)} · ${hours(week.minutes)}${growth(week)}`] : []),
-    `📿 Сессий: ${m.sessions} (утро ${m.morningSessions} · вечер ${m.eveningSessions}) · ${Math.round(m.minutes / 60)} ч`,
-    `📅 Дней с практикой: ${m.practicedDays} · обе практики: ${m.fullDays}`,
-    `🔥 Серия: ${days(m.currentStreak)} (рекорд — ${m.bestStreak})`,
-    `☀️ Сегодня: утро ${mark('morning')} · вечер ${mark('evening')}`,
-  ];
-  const usual = [
-    usualTimes.morning && `утро ~${usualTimes.morning}`,
-    usualTimes.evening && `вечер ~${usualTimes.evening}`,
-  ].filter(Boolean);
-  if (usual.length) lines.push(`⏰ Обычно отмечаешься: ${usual.join(' · ')}`);
-  if (m.status === 'paused' && m.pauseUntil) lines.push(`🏕 На паузе до ${shortDate(m.pauseUntil)}`);
-  return lines.join('\n');
-}
-
 export interface DetailedMeInput extends MeInput {
   chatTitle: string;
 }
@@ -380,7 +355,7 @@ export function renderMeDetailed(input: DetailedMeInput): string {
     usualTimes.evening && `вечер ~${usualTimes.evening}`,
   ].filter(Boolean);
   if (usual.length) lines.push(`⏰ Обычно отмечаешься: ${usual.join(' · ')}`);
-  const byDuration = ([60, 30, 15] as const)
+  const byDuration = MINUTES
     .filter((min) => durations[min] > 0)
     .map((min) => `${min === 60 ? '1 ч' : `${min} мин`} ×${durations[min]}`);
   if (byDuration.length) lines.push(`⏱ Сессии: ${byDuration.join(' · ')}`);
@@ -458,19 +433,19 @@ export function renderWelcome(m: Member): string {
 
 const RULES = `🪷 <b>Как это работает</b>
 
-• В 04:00 день закрывается: итоги вчерашнего дня и сразу утренний опрос. В 16:00 — вечерний. Отметься, когда помедитируешь: 1 час, 30 или 15 минут. Ошибся — «Retract vote» и проголосуй заново.
+• В 04:00 день закрывается: итоги вчерашнего дня и сразу утренний опрос. В 16:00 — вечерний. Отметься, когда помедитируешь: 1 час, 45, 30 или 15 минут. Ошибся — «Retract vote» и проголосуй заново.
 • Опросы открыты до 04:00 следующего дня.
 • В 21:30 бот напоминает тем, у кого сегодня ещё ни одной сессии.
 • Раз в неделю, в месяц и в год — итоги группы: сообщение и картинка о том, как мы растём вместе.
 • Таблица отсортирована по часам практики за последние 30 дней. Рядом — регулярность: доля сделанных сессий (утро + вечер) за те же 30 дней.
 • Три дня подряд без практики — бот убирает из чата. Вернуться можно в любой момент, статистика сохраняется.
 • Звания растут с часами практики, достижения дают один раз за особые усилия. Поздравление приходит сразу после голоса; своё звание, прогресс и все достижения — в /me в личке у бота.
-• /me присылает личную картинку: вся твоя практика за неделю, месяц и всё время.`;
+• /me в личке у бота присылает картинки: вся твоя практика за неделю, месяц и всё время и карточки, которыми можно поделиться в соцсетях.`;
 
 export const HELP_TEXT = `${RULES}
 
 <b>Команды</b>
-/me — моя статистика
+/me — моя статистика (в личке у бота)
 /top — таблица
 /pause 10 ретрит — пауза на N дней (серия замораживается, напоминаний нет)
 /resume — закончить паузу
@@ -481,4 +456,4 @@ export const HELP_TEXT = `${RULES}
 /** Help in the private chat: only what works there. */
 export const PRIVATE_HELP = `${RULES}
 
-/me — подробная статистика и картинка твоей практики`;
+/me — подробная статистика, картинка твоей практики и карточки для соцсетей`;

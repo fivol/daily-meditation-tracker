@@ -27,7 +27,7 @@ try {
   // The menu shows only what works in each kind of chat.
   await bot.api.setMyCommands(
     [
-      { command: 'me', description: 'Моя статистика' },
+      { command: 'me', description: 'Моя статистика — в личке бота' },
       { command: 'top', description: 'Таблица за вчера' },
       { command: 'pause', description: 'Пауза на N дней: /pause 10 ретрит' },
       { command: 'resume', description: 'Закончить паузу' },

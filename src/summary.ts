@@ -190,7 +190,7 @@ const emptyHours = (): SlotHours => ({ morning: Array(24).fill(0), evening: Arra
 
 /** Durations and check-in hours of done sessions. Admin fixes carry no real time, so they skip the hours. */
 function sessionShape(checkins: Checkin[], settings: Pick<ChatSettings, 'timezone' | 'dayBoundaryHour'>) {
-  const durations: Record<Minutes, number> = { 60: 0, 30: 0, 15: 0 };
+  const durations: Record<Minutes, number> = { 60: 0, 45: 0, 30: 0, 15: 0 };
   const hours = emptyHours();
   const slots: Record<Slot, number> = { morning: 0, evening: 0 };
   for (const c of checkins) {

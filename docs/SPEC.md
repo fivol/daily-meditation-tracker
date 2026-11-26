@@ -50,6 +50,7 @@ Why these times:
 🌅 Утренняя практика · пн 16 ноября
 
 ○ 🧘 1 час
+○ 🪷 45 минут
 ○ 🌿 30 минут
 ○ 🌱 15 минут
 ○ 🙏 Сегодня не получилось
@@ -138,17 +139,9 @@ Full description: [AWARDS.md](AWARDS.md).
 
 ### 4.5 Personal stats: `/me`
 
-Reply in the chat — the personal dashboard picture with this caption, auto-deleted after
-10 minutes (the command message is deleted too):
-
-```
-🧘 Боря · с нами 140 дней
-📈 Регулярность за 30 дней: 85% (51 из 60 сессий)
-📿 Сессий: 188 (утро 104 · вечер 84) · 171 ч
-📅 Дней с практикой: 131 · обе практики: 81
-🔥 Серия: 17 дней (рекорд — 34)
-⏰ Обычно отмечаешься: утро ~07:10 · вечер ~21:40
-```
+Personal stats live in the bot's private chat. In the group `/me` only answers with a short
+note and a link that opens the private chat and shows the stats there (`t.me/<bot>?start=me`);
+the note is auto-deleted after 2 minutes, the command message right away.
 
 `/top` re-posts the current leaderboard on demand.
 
@@ -158,8 +151,8 @@ The private chat answers only what works there: `/start` and `/help` show the ru
 shows detailed stats for every group the user is in — regularity and hours for 7 days, 30 days
 and all time (with growth against the window before), streak and record, totals with average
 session length, practiced days out of active days, today, usual check-in times, sessions by
-duration, a 30-day calendar and achievements — followed by the personal dashboard picture
-([SUMMARIES.md](SUMMARIES.md)). Any other text sent in private gets the same answer; the
+duration, a 30-day calendar and achievements — followed by one album with the personal dashboard
+and the share cards ([SUMMARIES.md](SUMMARIES.md)). Any other text sent in private gets the same answer; the
 private command menu lists only `/me` and `/help`.
 
 ---

@@ -48,7 +48,7 @@ export function demoHistory(historyDays = 427) {
       for (const slot of ['morning', 'evening'] as const) {
         if (rand() > diligence + growth + weekend - (slot === 'evening' ? 0.07 : 0)) continue;
         const roll = rand();
-        const minutes: Minutes = roll < 0.62 + growth ? 60 : roll < 0.9 ? 30 : 15;
+        const minutes: Minutes = roll < 0.55 + growth ? 60 : roll < 0.7 ? 45 : roll < 0.92 ? 30 : 15;
         const at = `${slot === 'morning' ? date : rand() < 0.08 ? addDays(date, 1) : date}T${String(slot === 'morning' ? hour + Math.floor(rand() * 3) - 3 : rand() < 0.08 ? 21 : 15 + Math.floor(rand() * 6)).padStart(2, '0')}:${String(Math.floor(rand() * 60)).padStart(2, '0')}:00.000Z`;
         done[slot] = { minutes, at, source: 'poll', rescued: false };
         checkins.push({ userId, date, slot, status: 'done', minutes, firstAt: at, updatedAt: at, source: 'poll' });

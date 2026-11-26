@@ -1,4 +1,4 @@
-import type { Context, InputFile } from 'grammy';
+import type { Context } from 'grammy';
 import { getChat } from '../services/chats.js';
 import { findByUsername, getMember } from '../services/members.js';
 import type { ChatSettings, Member } from '../types.js';
@@ -6,8 +6,6 @@ import type { ChatSettings, Member } from '../types.js';
 export const html = { parse_mode: 'HTML' } as const;
 
 const TEMP_REPLY_MS = 2 * 60 * 1000;
-/** A dashboard takes longer to look at than a line of text. */
-const TEMP_PHOTO_MS = 10 * 60 * 1000;
 
 /** Deletes the command message to keep the group clean (needs the "Delete messages" right). */
 export async function deleteCommand(ctx: Context): Promise<void> {
@@ -18,12 +16,6 @@ export async function deleteCommand(ctx: Context): Promise<void> {
 /** Reply that disappears after a while. */
 export async function replyTemp(ctx: Context, text: string, ttlMs = TEMP_REPLY_MS): Promise<void> {
   const sent = await ctx.reply(text, { ...html, disable_notification: true });
-  setTimeout(() => ctx.api.deleteMessage(sent.chat.id, sent.message_id).catch(() => undefined), ttlMs);
-}
-
-/** Photo reply with a caption that disappears after a while. */
-export async function replyPhotoTemp(ctx: Context, photo: InputFile, caption: string, ttlMs = TEMP_PHOTO_MS): Promise<void> {
-  const sent = await ctx.replyWithPhoto(photo, { caption, ...html, disable_notification: true });
   setTimeout(() => ctx.api.deleteMessage(sent.chat.id, sent.message_id).catch(() => undefined), ttlMs);
 }
 

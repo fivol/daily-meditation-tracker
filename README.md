@@ -14,15 +14,15 @@ tap and turns honest records into gentle social support.
 | 16:00 | Evening poll |
 | 21:30 | Pings everyone with no session today |
 
-- **Check-in = one tap** in a non-anonymous poll: `1 час` · `30 минут` · `15 минут` ·
+- **Check-in = one tap** in a non-anonymous poll: `1 час` · `45 минут` · `30 минут` · `15 минут` ·
   `Сегодня не получилось`. Changed your mind? Retract the vote and vote again.
 - **Leaderboard** sorted by the current streak, then by 30-day regularity; each entry shows the title,
   30-day hours and regularity (sessions done / sessions possible) and the streak.
 - **Live progress** in a pinned message: `☀️ Сегодня: утро 18/28 · вечер 5/28`.
 - **Summaries with dashboards:** a text and a zoomable picture about the group's progress every
   week, every month and every year — see [docs/SUMMARIES.md](docs/SUMMARIES.md).
-- **Personal dashboard:** `/me` answers with a picture of your whole practice — last week, last
-  month, all time.
+- **Personal dashboard:** `/me` in the bot's private chat answers with a picture of your whole
+  practice — last week, last month, all time — and a 4:5 share card for social media.
 - **Titles and achievements:** 15 titles by total hours (🌱 Искатель → ☸️ Будда) and 19 one-time
   achievements for real effort, congratulated right after the vote — see [docs/AWARDS.md](docs/AWARDS.md).
 - **Accountability:** after 3 days in a row without practice the bot removes the member and
@@ -50,7 +50,7 @@ tap and turns honest records into gentle social support.
 
 | Who | Command | Purpose |
 |---|---|---|
-| Everyone | `/me` | Personal dashboard picture with short stats (in the group); detailed stats and the picture in the bot's private chat |
+| Everyone | `/me` | In the bot's private chat: detailed stats, the personal dashboard and a share card for social media. In the group it only points to the private chat |
 | Everyone | `/top` | Latest leaderboard |
 | Everyone | `/pause N [reason]`, `/resume` | Pause for N days / end it |
 | Everyone | `/help` | Rules |

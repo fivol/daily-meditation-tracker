@@ -6,6 +6,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { groupDashboard } from '../src/charts/group.js';
 import { personalDashboard } from '../src/charts/personal.js';
 import { toPng } from '../src/charts/png.js';
+import { shareCards } from '../src/charts/share.js';
 import { demoHistory } from './demo.js';
 import { latestPeriod, personalHistory, summarize, type PeriodKind } from '../src/summary.js';
 
@@ -26,7 +27,9 @@ if (!chatArg) {
   save('demo-young-week', groupDashboard(summarize(youngWeek, young, young.settings), 'Утро и вечер'));
   const newcomer = young.members[0];
   const own = young.checkins.filter((c) => c.userId === newcomer.userId);
-  save('demo-young-me', personalDashboard(newcomer, personalHistory(newcomer, own, young.settings, young.today), young.today));
+  const ownHistory = personalHistory(newcomer, own, young.settings, young.today);
+  save('demo-young-me', personalDashboard(newcomer, ownHistory, young.today));
+  shareCards(newcomer, ownHistory).forEach((svg, n) => save(`demo-young-share-${n + 1}`, svg));
 
   const demo = demoHistory();
   for (const kind of kinds) {
@@ -34,7 +37,9 @@ if (!chatArg) {
   }
   for (const [i, member] of [demo.members[0], demo.members.at(-1)!].entries()) {
     const checkins = demo.checkins.filter((c) => c.userId === member.userId);
-    save(`demo-me-${i + 1}`, personalDashboard(member, personalHistory(member, checkins, demo.settings, demo.today), demo.today));
+    const history = personalHistory(member, checkins, demo.settings, demo.today);
+    save(`demo-me-${i + 1}`, personalDashboard(member, history, demo.today));
+    shareCards(member, history).forEach((svg, n) => save(`demo-me-${i + 1}-share-${n + 1}`, svg));
   }
 } else {
   const { getChat, listChats } = await import('../src/services/chats.js');
@@ -55,6 +60,7 @@ if (!chatArg) {
     const today = practiceDate(settings);
     const history = personalHistory(member, await loadPersonalCheckins(chatId, member.userId), settings, today);
     save('real-me', personalDashboard(member, history, today));
+    shareCards(member, history).forEach((svg, n) => save(`real-share-${n + 1}`, svg));
   }
   process.exit(0);
 }

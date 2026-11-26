@@ -6,7 +6,7 @@ Definitions live in code: titles in `src/config.ts` (`TITLES`), achievements in 
 
 ## Titles
 
-Hours = minutes of all `done` sessions (60 / 30 / 15) ever, including sessions on paused days and
+Hours = minutes of all `done` sessions (60 / 45 / 30 / 15) ever, including sessions on paused days and
 admin fixes. A member holds the highest title reached; there is none below 2 hours.
 
 | # | Title | Hours | At 2 h/day |
@@ -71,8 +71,7 @@ did both sessions), 🤝 Неделя без потерь (7 closed days in a ro
 - **At day close** "Кремень" and group achievements are evaluated; all awards of the day appear in
   the next morning's leaderboard.
 - **Where shown:** title emoji before the name in the leaderboard (sorting unchanged); weekly recap
-  lists the week's awards; group `/me` has one line (title · hours · next title · 🏅 N of 19);
-  private `/me` shows the title with a progress bar and the full achievement list.
+  lists the week's awards; `/me` (private chat) shows the title with a progress bar and the full achievement list.
 
 ## Data
 

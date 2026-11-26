@@ -187,9 +187,11 @@ export interface Part {
   label: string;
   value: number;
   color: string;
+  /** Colour of the share written inside the segment; white by default. */
+  ink?: string;
 }
 
-/** One whole split into parts: a tall segmented bar with shares inside and a legend below. */
+/** One whole split into parts: a tall segmented bar with shares inside and a legend below (zero parts are left out). */
 export function segmented(x: number, y: number, w: number, parts: Part[]): string {
   const h = 44;
   const gap = 4;
@@ -203,15 +205,22 @@ export function segmented(x: number, y: number, w: number, parts: Part[]): strin
     const width = (p.value / total) * usable;
     const share = `${Math.round((100 * p.value) / total)}%`;
     out.push(rect(cursor, y, width, h, { r: 10, fill: p.color }));
-    if (width > textWidth(share, 21, 700) + 28) out.push(text(cursor + 14, y + 30, share, { size: 21, weight: 700, fill: '#FFFFFF' }));
+    if (width > textWidth(share, 21, 700) + 28) out.push(text(cursor + 14, y + 30, share, { size: 21, weight: 700, fill: p.ink ?? '#FFFFFF' }));
     cursor += width + gap;
   }
+  // Legend keys wrap to the next line when the row is full.
   let lx = x;
-  for (const p of parts) {
+  let ly = y + h + 20;
+  for (const p of total > 0 ? shown : parts) {
     const label = `${p.label} · ${p.value}`;
-    out.push(rect(lx, y + h + 20, 16, 16, { r: 5, fill: p.color }));
-    out.push(text(lx + 24, y + h + 35, label, { size: 20, fill: C.ink2 }));
-    lx += 24 + textWidth(label, 20) + 22;
+    const width = 24 + textWidth(label, 20);
+    if (lx > x && lx + width > x + w) {
+      lx = x;
+      ly += 30;
+    }
+    out.push(rect(lx, ly, 16, 16, { r: 5, fill: p.color }));
+    out.push(text(lx + 24, ly + 15, label, { size: 20, fill: C.ink2 }));
+    lx += width + 22;
   }
   return out.join('');
 }
@@ -252,7 +261,9 @@ export function ring(cx: number, cy: number, r: number, ratio: number | null, st
     ratio > 0
       ? `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${C.teal[2]}" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${filled.toFixed(1)} ${length.toFixed(1)}" transform="rotate(-90 ${cx} ${cy})"/>`
       : '';
-  return track + arc + text(cx, cy + 15, `${Math.round(ratio * 100)}%`, { size: 42, weight: 800, anchor: 'middle' });
+  // The number always fits inside the ring, "100%" included.
+  const size = Math.min(42, r * 0.6);
+  return track + arc + text(cx, cy + size * 0.36, `${Math.round(ratio * 100)}%`, { size, weight: 800, anchor: 'middle' });
 }
 
 /** Heat steps by minutes practiced in a day. */

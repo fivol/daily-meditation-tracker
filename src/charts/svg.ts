@@ -80,6 +80,7 @@ export function column(x: number, top: number, w: number, h: number, radius = 8,
 function glyphWidth(ch: string): number {
   if (ch === ' ' || ch === ' ') return 0.28;
   if (/[.,:;·'’!]/.test(ch)) return 0.27;
+  if (ch === '1') return 0.44;
   if (/[0-9]/.test(ch)) return 0.6;
   if (/[%]/.test(ch)) return 0.86;
   if (/[+−–\-=]/.test(ch)) return 0.58;
@@ -173,11 +174,11 @@ export function niceScale(max: number, ticks = 4): { max: number; step: number }
   return { max: Math.ceil(max / step) * step, step };
 }
 
-/** Wraps the pieces of a dashboard into a document on the page background. */
-export function document(height: number, body: string[]): string {
+/** Wraps the pieces of a picture into a document on a plain background. */
+export function document(height: number, body: string[], width = W, fill = C.page): string {
   return [
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${n(height)}" viewBox="0 0 ${W} ${n(height)}" font-family="Manrope">`,
-    rect(0, 0, W, height, { fill: C.page }),
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${n(height)}" viewBox="0 0 ${width} ${n(height)}" font-family="Manrope">`,
+    rect(0, 0, width, height, { fill }),
     ...body,
     '</svg>',
   ].join('');

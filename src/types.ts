@@ -2,7 +2,9 @@ export type Slot = 'morning' | 'evening';
 export const SLOTS: Slot[] = ['morning', 'evening'];
 
 /** Minutes a member reports for a session. */
-export type Minutes = 60 | 30 | 15;
+export type Minutes = 60 | 45 | 30 | 15;
+/** Session lengths a member can report, longest first. */
+export const MINUTES: Minutes[] = [60, 45, 30, 15];
 
 export interface Schedule {
   /** Local "HH:mm" times within the practice day. */

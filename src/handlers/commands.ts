@@ -1,9 +1,10 @@
-import { InputFile, type Bot, type Context } from 'grammy';
+import { InputFile, InputMediaBuilder, type Bot, type Context } from 'grammy';
 import { personalDashboard } from '../charts/personal.js';
 import { toPng } from '../charts/png.js';
+import { shareCards } from '../charts/share.js';
 import { DEFAULT_SETTINGS } from '../config.js';
 import { users } from '../db.js';
-import { HELP_TEXT, PRIVATE_HELP, renderMe, renderMeDetailed } from '../render.js';
+import { HELP_TEXT, PRIVATE_HELP, renderMeDetailed } from '../render.js';
 import { getChat, listChats, updateChat } from '../services/chats.js';
 import { saveCheckin } from '../services/checkins.js';
 import { buildLeaderboard, recomputeMember, sendExport, sendSummary } from '../services/jobs.js';
@@ -14,13 +15,12 @@ import { latestPeriod, type PeriodKind } from '../summary.js';
 import { log } from '../logger.js';
 import { createProgressMessage, scheduleProgressUpdate } from '../services/progress.js';
 import { addDays, isValidDate, isValidTime, practiceDate } from '../time.js';
-import type { ChatSettings, Minutes, Schedule } from '../types.js';
+import { MINUTES, type ChatSettings, type Minutes, type Schedule } from '../types.js';
 import {
   args,
   deleteCommand,
   html,
   isAdmin,
-  replyPhotoTemp,
   replyTemp,
   requireChat,
   resolveTarget,
@@ -47,6 +47,8 @@ function groupCommand(handler: (ctx: Context, settings: ChatSettings) => Promise
 const start: Handler = async (ctx) => {
   if (ctx.chat?.type !== 'private' || !ctx.from) return;
   await users().doc(String(ctx.from.id)).set({ canDm: true }, { merge: true });
+  // The link the group's /me hands out opens the stats straight away.
+  if (ctx.match === ME_PAYLOAD) return privateMe(ctx);
   await ctx.reply(PRIVATE_HELP, html);
 };
 
@@ -78,23 +80,23 @@ const setup: Handler = async (ctx) => {
   );
 };
 
-/** The member's personal dashboard as a PNG file. */
-const dashboardOf = (stats: PersonalStats) =>
-  new InputFile(toPng(personalDashboard(stats.member, stats.history, stats.date)), `practice-${stats.date}.png`);
+/** Payload of the deep link that leads from the group to the personal stats. */
+const ME_PAYLOAD = 'me';
 
-/** In the group: the dashboard with the short stats as its caption; plain text if the picture fails. */
-const groupMe = groupCommand(async (ctx, settings) => {
-  const member = await ensureMember(ctx.chat!.id, ctx.from!, practiceDate(settings));
-  const stats = await personalStats(ctx.chat!.id, settings, member);
-  try {
-    await replyPhotoTemp(ctx, dashboardOf(stats), renderMe(stats));
-  } catch (err) {
-    log.error(`Chat ${ctx.chat!.id}: personal dashboard of ${member.userId} failed`, err);
-    await replyTemp(ctx, renderMe(stats));
-  }
-});
+/** The member's pictures as one album: the big dashboard, then the share cards for social media. */
+function gallery(stats: PersonalStats) {
+  const svgs = [personalDashboard(stats.member, stats.history, stats.date), ...shareCards(stats.member, stats.history)];
+  return svgs.map((svg, i) => InputMediaBuilder.photo(new InputFile(toPng(svg), `practice-${stats.date}-${i + 1}.png`)));
+}
 
-/** In private: detailed stats and the dashboard for every group the user takes part in. */
+/** In the group /me does nothing but point to the private chat: personal stats are personal. */
+const groupMe: Handler = async (ctx) => {
+  await deleteCommand(ctx);
+  const link = `https://t.me/${ctx.me.username}?start=${ME_PAYLOAD}`;
+  await replyTemp(ctx, `🧘 Личная статистика — в личных сообщениях бота. Выполни /me там: <a href="${link}">открыть @${ctx.me.username}</a>`);
+};
+
+/** In private: detailed stats and the pictures for every group the user takes part in. */
 const privateMe: Handler = async (ctx) => {
   let found = false;
   for (const { chatId, settings } of await listChats()) {
@@ -105,9 +107,11 @@ const privateMe: Handler = async (ctx) => {
     const chatTitle = chat && 'title' in chat && chat.title ? chat.title : 'группа';
     const stats = await personalStats(chatId, settings, member);
     await ctx.reply(renderMeDetailed({ ...stats, chatTitle }), html);
-    await ctx
-      .replyWithPhoto(dashboardOf(stats))
-      .catch((err) => log.error(`Personal dashboard of ${member.userId} failed`, err));
+    try {
+      await ctx.replyWithMediaGroup(gallery(stats));
+    } catch (err) {
+      log.error(`Personal pictures of ${member.userId} failed`, err);
+    }
   }
   if (!found) await ctx.reply('Статистики пока нет: отметься в опросе в группе 🙏', html);
 };
@@ -158,13 +162,13 @@ const fix = groupCommand(async (ctx, settings) => {
   const rest = args(ctx);
   const target = await resolveTarget(ctx, rest);
   const [date, slot, value] = rest;
-  const usage = 'Формат: /fix @user 2026-11-15 morning|evening 60|30|15|remove';
+  const usage = 'Формат: /fix @user 2026-11-15 morning|evening 60|45|30|15|remove';
   if (!target) return replyTemp(ctx, `Не нашёл участника. ${usage}`);
   const today = practiceDate(settings);
   if (!date || !isValidDate(date) || date < settings.startDate || date > today) return replyTemp(ctx, usage);
   if (slot !== 'morning' && slot !== 'evening') return replyTemp(ctx, usage);
   const minutes = Number(value);
-  if (value !== 'remove' && ![60, 30, 15].includes(minutes)) return replyTemp(ctx, usage);
+  if (value !== 'remove' && !(MINUTES as number[]).includes(minutes)) return replyTemp(ctx, usage);
 
   await saveCheckin(
     chatId,

@@ -17,10 +17,10 @@ const WINDOWS: { key: keyof PersonalHistory['windows']; title: string; prev?: st
 
 /** One window of practice: regularity ring, hours, sessions and growth against the window before. */
 function windowCard(box: Box, title: string, w: PersonalWindow, note: string, prev?: string): string {
-  const x = box.x + PAD + 190;
+  const x = box.x + PAD + 162;
   const parts = [
     card(box, title),
-    ring(box.x + PAD + 76, box.y + 178, 66, w.possible > 0 ? w.sessions / w.possible : null),
+    ring(box.x + PAD + 68, box.y + 178, 58, w.possible > 0 ? w.sessions / w.possible : null, 18),
     text(x, box.y + 142, `${hoursNumber(w.minutes)} ч`, { size: 50, weight: 800 }),
     text(x, box.y + 178, w.possible > 0 ? `${int(w.sessions)} из ${int(w.possible)} сессий` : `${int(w.sessions)} ${plural(w.sessions, 'сессия', 'сессии', 'сессий')}`, { size: 22, fill: C.ink2 }),
   ];
@@ -77,11 +77,11 @@ export function personalDashboard(m: Member, h: PersonalHistory, today: string):
 
   // Week, month, all time
   const rowB = 290;
-  const perDay = (w: PersonalWindow, span: number) => `в среднем ${Math.round(w.minutes / Math.max(span, 1))} мин в день`;
+  const perDay = (w: PersonalWindow, span: number) => `≈ ${Math.round(w.minutes / Math.max(span, 1))} мин в день`;
   const notes = {
     week: perDay(h.windows.week, Math.min(m.recent.length, 7)),
     month: perDay(h.windows.month, m.recent.length),
-    all: `в среднем ${hoursNumber((7 * m.minutes) / withUs)} ч в неделю`,
+    all: `≈ ${hoursNumber((7 * m.minutes) / withUs)} ч в неделю`,
   };
   WINDOWS.forEach((w, i) =>
     body.push(windowCard({ x: M + i * (third + GAP), y, w: third, h: rowB }, w.title, h.windows[w.key], notes[w.key], w.prev)),
@@ -129,14 +129,15 @@ export function personalDashboard(m: Member, h: PersonalHistory, today: string):
   const how: Box = { x: M, y, w: third, h: rowE };
   body.push(card(how, 'Как я практикую', 'длина сессий и время дня'));
   body.push(
-    segmented(how.x + PAD, how.y + 126, how.w - 2 * PAD, [
+    segmented(how.x + PAD, how.y + 116, how.w - 2 * PAD, [
       { label: '1 ч', value: h.durations[60], color: C.teal[3] },
-      { label: '30 мин', value: h.durations[30], color: C.teal[2] },
-      { label: '15 мин', value: h.durations[15], color: C.teal[1] },
+      { label: '45 мин', value: h.durations[45], color: C.teal[2] },
+      { label: '30 мин', value: h.durations[30], color: C.teal[1] },
+      { label: '15 мин', value: h.durations[15], color: C.teal[0], ink: C.teal[3] },
     ]),
   );
   body.push(
-    segmented(how.x + PAD, how.y + 246, how.w - 2 * PAD, [
+    segmented(how.x + PAD, how.y + 252, how.w - 2 * PAD, [
       { label: 'утро', value: h.slots.morning, color: C.morning },
       { label: 'вечер', value: h.slots.evening, color: C.evening },
     ]),

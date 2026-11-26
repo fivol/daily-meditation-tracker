@@ -40,16 +40,30 @@ chat — a way to look at it without posting to the group.
 
 ## Personal dashboard: `/me`
 
-`/me` answers with the member's own dashboard:
-
-- **in the group** — the picture with the short stats as its caption, deleted after 10 minutes;
-- **in private** — the detailed text, then the picture, for every group the user is in. Any
-  other message written to the bot in private gets the same answer.
+`/me` works in the bot's private chat: the detailed text, then one album (gallery) with the
+dashboard and the share cards, for every group the user is in. Any other message written to the
+bot in private gets the same answer. In the group `/me` only points to the private chat.
 
 The picture covers the whole time with us: total hours, sessions, streak and practiced days;
 regularity rings and hours for the last 7 days, the last 30 days and all time (with growth
 against the window before); a calendar of every day; hours week by week; the path to the next
 title; session lengths, morning vs evening, check-in hours; achievements.
+
+### Share cards
+
+After the dashboard the album has one or two 4:5 cards (1080×1350 logical, made for an Instagram
+feed) in a night-teal theme. They carry only what an outsider understands — no titles, no
+achievements:
+
+1. **Hours** — total hours of practice, what they compare to on a 10-day course (≈10 hours of
+   sitting a day), up to four facts and the last 30 days as columns.
+2. **Days** (from 21 practiced days) — days on the cushion, a calendar of the last weeks and
+   two more facts.
+
+Facts are picked per person (`shareFacts` in `src/charts/share.ts`): each candidate — streak,
+average session, hour-long sessions, regularity, two-hour days, days with both sessions, record
+streak, best week, sessions, practiced days — has a threshold below which it is hidden and a
+score that grows with the amount; the strongest ones are shown. So nobody gets a card with zeros.
 
 ## Code
 
