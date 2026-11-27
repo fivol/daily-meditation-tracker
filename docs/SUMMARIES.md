@@ -7,14 +7,15 @@ the pictures show people only as anonymous counts, and a dip is simply not menti
 
 ## The day picture
 
-Right after the daily leaderboard the bot posts one picture about the closed day — the group as a
+Right after the daily leaderboard text the bot posts one picture about the closed day — the group as a
 whole, no names. It is narrower than the period dashboards, so it reads large next to the long
 leaderboard text, and it holds only the day itself (longer trends live in the summaries below):
 
-- the day in numbers: hours together, sessions out of possible, how many practiced, regularity;
-- when we sat: every session as a dot on the day's clock (04:00 → 04:00), morning and evening
-  colours, bigger for longer sessions, with the first and the last check-in time;
-- how long: sessions of 1 hour, 45, 30 and 15 minutes;
+- the day in numbers: hours of meditation together, sessions out of possible, the average
+  session, how many practiced, and the share of possible sessions done as a ring;
+- time of the meditations: every session as a dot on the day's clock (04:00 → 04:00), morning and
+  evening colours, bigger for longer sessions, with the first and the last check-in time;
+- duration: sessions of 1 hour, 45, 30 and 15 minutes;
 - joys of the day as counts: both sessions, hour-long sessions, streaks of 7+ days, new awards,
   minutes per person — anything at zero is left out.
 

@@ -81,48 +81,50 @@ function joys(s: DaySummary): { value: string; label: string }[] {
     .map((j) => ({ value: String(j.n), label: j.label }));
 }
 
-/** The day picture: the day in numbers, when we sat, how long, and the joys of the day. */
+/** The day picture: the day in numbers, time of the meditations, durations, and the joys of the day. */
 export function dayDashboard(s: DaySummary, boundaryHour: number): string {
   const date = DateTime.fromISO(s.date).setLocale('ru');
   const full = W - 2 * M;
   const body: string[] = [];
 
   body.push(lotus(M + 46, 158, 1.1));
-  body.push(text(M + 134, 92, 'ПРАКТИКА ДНЯ', { size: 26, weight: 800, fill: C.accent, spacing: 3 }));
+  body.push(text(M + 134, 92, 'МЕДИТАЦИЯ · ИТОГИ ДНЯ', { size: 26, weight: 800, fill: C.accent, spacing: 3 }));
   body.push(text(M + 134, 160, date.toFormat('d MMMM'), { size: 68, weight: 800 }));
   body.push(text(M + 134, 202, date.toFormat('cccc'), { size: 28, fill: C.ink2 }));
   let y = 248;
 
-  // The day in numbers: regularity as a ring, then time, sessions and people.
+  // The day in numbers: four facts in a grid, regularity as a ring.
   const hero: Box = { x: M, y, w: full, h: 340 };
   body.push(card(hero));
   const cx = hero.x + hero.w - PAD - 190;
   body.push(ring(cx, hero.y + 150, 116, s.possible ? s.sessions / s.possible : null, 30));
-  body.push(text(cx, hero.y + 306, 'регулярность', { size: 24, fill: C.ink3, anchor: 'middle' }));
+  body.push(text(cx, hero.y + 306, 'сессий сделано', { size: 24, fill: C.ink3, anchor: 'middle' }));
   const facts = [
-    { value: `${hoursNumber(s.minutes)} ч`, label: 'на подушке вместе' },
+    { value: `${hoursNumber(s.minutes)} ч`, label: 'медитации вместе' },
     { value: `${s.sessions} из ${s.possible}`, label: 'сессий группы' },
+    { value: s.sessions ? `${Math.round(s.minutes / s.sessions)} мин` : '—', label: 'средняя сессия' },
     { value: people(s.people), label: 'практиковали' },
   ];
   facts.forEach((f, i) => {
-    const fy = hero.y + 96 + i * 96;
-    body.push(text(hero.x + PAD + 10, fy, f.value, { size: 60, weight: 800 }));
-    body.push(text(hero.x + PAD + 10, fy + 34, f.label, { size: 24, fill: C.ink3 }));
+    const fx = hero.x + PAD + 10 + (i % 2) * 340;
+    const fy = hero.y + 132 + Math.floor(i / 2) * 130;
+    body.push(text(fx, fy, f.value, { size: 60, weight: 800 }));
+    body.push(text(fx, fy + 38, f.label, { size: 24, fill: C.ink3 }));
   });
   y += hero.h + GAP;
 
-  // When we sat: every session on the day's clock.
+  // Time of the meditations: every session on the day's clock.
   // A busy day gets a taller card, so the dots stay big enough to read.
   const when: Box = { x: M, y, w: full, h: 400 + Math.max(0, s.moments.length - 16) * 7 };
-  body.push(card(when, 'Когда мы садились', 'каждая точка — сессия, чем крупнее, тем дольше'));
+  body.push(card(when, 'Время медитаций', 'каждая точка — сессия, чем крупнее, тем дольше'));
   body.push(legend(when.x + when.w - PAD, when.y + 58, [{ color: C.morning, label: 'утро' }, { color: C.evening, label: 'вечер' }]));
   body.push(timeline(inner(when, 110), s.moments, boundaryHour));
   y += when.h + GAP;
 
-  // How long, and the joys of the day.
+  // Duration, and the joys of the day.
   const half = (full - GAP) / 2;
   const lengths: Box = { x: M, y, w: half, h: 360 };
-  body.push(card(lengths, 'Как сидели', 'длина сессий'));
+  body.push(card(lengths, 'Продолжительность', 'сессии по длине'));
   const n = (k: 60 | 45 | 30 | 15) => s.durations[k];
   body.push(
     rows(
@@ -137,10 +139,10 @@ export function dayDashboard(s: DaySummary, boundaryHour: number): string {
     ),
   );
   const glad: Box = { x: M + half + GAP, y, w: half, h: 360 };
-  body.push(card(glad, 'Радости дня', 'сколько из нас — без имён'));
+  body.push(card(glad, 'Радости дня'));
   joys(s).forEach((j, i) => {
     const jx = glad.x + PAD + (i % 2) * ((glad.w - 2 * PAD) / 2);
-    const jy = glad.y + 186 + Math.floor(i / 2) * 110;
+    const jy = glad.y + 176 + Math.floor(i / 2) * 110;
     body.push(text(jx, jy, j.value, { size: 52, weight: 800 }));
     body.push(text(jx, jy + 34, j.label, { size: 20, fill: C.ink2 }));
   });
