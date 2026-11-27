@@ -3,12 +3,13 @@
 //   npm run preview -- real|<chatId> [userId]  — real data from Firestore (read-only);
 //                                           without userId the member is OWNER_ID
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { dayDashboard } from '../src/charts/day.js';
 import { groupDashboard } from '../src/charts/group.js';
 import { personalDashboard } from '../src/charts/personal.js';
 import { toPng } from '../src/charts/png.js';
 import { shareCards } from '../src/charts/share.js';
 import { demoHistory } from './demo.js';
-import { latestPeriod, personalHistory, summarize, type PeriodKind } from '../src/summary.js';
+import { latestPeriod, personalHistory, summarize, summarizeDay, type PeriodKind } from '../src/summary.js';
 
 const OUT = 'preview';
 mkdirSync(OUT, { recursive: true });
@@ -32,6 +33,8 @@ if (!chatArg) {
   shareCards(newcomer, ownHistory).forEach((svg, n) => save(`demo-young-share-${n + 1}`, svg));
 
   const demo = demoHistory();
+  const closed = demo.settings.lastClosedDate;
+  save('demo-day', dayDashboard(summarizeDay(closed, demo.members, demo.checkins, demo.settings), demo.settings.dayBoundaryHour));
   for (const kind of kinds) {
     save(`demo-${kind}`, groupDashboard(summarize(latestPeriod(kind, demo.settings.startDate, demo.settings.lastClosedDate), demo, demo.settings), 'Утро и вечер'));
   }
@@ -50,6 +53,11 @@ if (!chatArg) {
   const chatId = chatArg === 'real' ? (await listChats())[0].chatId : Number(chatArg);
   const settings = await getChat(chatId);
   if (!settings) throw new Error(`Chat ${chatId} is not set up`);
+  const { listMembers } = await import('../src/services/members.js');
+  const { checkinsOfDay } = await import('../src/services/checkins.js');
+  const closed = settings.lastClosedDate;
+  const day = summarizeDay(closed, await listMembers(chatId), await checkinsOfDay(chatId, closed), settings);
+  save('real-day', dayDashboard(day, settings.dayBoundaryHour));
   for (const kind of kinds) {
     const period = latestPeriod(kind, settings.startDate, settings.lastClosedDate);
     save(`real-${kind}`, groupDashboard(summarize(period, await loadHistory(chatId, period), settings), 'Группа'));

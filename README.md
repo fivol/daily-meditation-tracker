@@ -10,7 +10,7 @@ tap and turns honest records into gentle social support.
 
 | Time (MSK) | What happens |
 |---|---|
-| 04:00 | Day closes (stats final, removal rule applied), yesterday's leaderboard, morning poll |
+| 04:00 | Day closes (stats final, removal rule applied), yesterday's leaderboard with the [day picture](docs/SUMMARIES.md#the-day-picture), morning poll |
 | 16:00 | Evening poll |
 | 21:30 | Pings everyone with no session today |
 

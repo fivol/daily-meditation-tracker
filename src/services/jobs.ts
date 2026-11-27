@@ -14,9 +14,10 @@ import {
   renderRemovalDm,
   renderSummary,
 } from '../render.js';
+import { dayDashboard } from '../charts/day.js';
 import { groupDashboard } from '../charts/group.js';
 import { toPng } from '../charts/png.js';
-import { periodsEndingOn, summarize, type Period } from '../summary.js';
+import { periodsEndingOn, summarize, summarizeDay, type Period } from '../summary.js';
 import { earnedAwards, earnedGroupAwards, maxTitle, nextNoLossRun } from '../awards.js';
 import { applyDay, baseStatusOf, emptyStats } from '../stats.js';
 import { addDays, isMonday } from '../time.js';
@@ -48,6 +49,15 @@ export async function buildLeaderboard(chatId: number, settings: ChatSettings, d
   });
 }
 
+/** The day picture that follows the leaderboard; nothing is sent for a day without sessions. */
+async function sendDayPicture(api: Api, chatId: number, settings: ChatSettings, date: string) {
+  const [all, list] = await Promise.all([listMembers(chatId), checkinsOfDay(chatId, date)]);
+  const day = summarizeDay(date, all, list, settings);
+  if (day.sessions === 0) return;
+  const png = toPng(dayDashboard(day, settings.dayBoundaryHour));
+  await api.sendPhoto(chatId, new InputFile(png, `day-${date}.png`), { disable_notification: true });
+}
+
 async function sendPoll(api: Api, chatId: number, date: string, slot: Slot, notify: boolean) {
   const message = await api.sendPoll(
     chatId,
@@ -76,6 +86,10 @@ export async function runLeaderboard(api: Api, chatId: number, settings: ChatSet
   const yesterday = addDays(date, -1);
   if (yesterday >= settings.startDate) {
     await api.sendMessage(chatId, await buildLeaderboard(chatId, settings, yesterday), silentHtml);
+    // A failed picture is only logged: a retry must not post the leaderboard twice.
+    await sendDayPicture(api, chatId, settings, yesterday).catch((err) =>
+      log.error(`Chat ${chatId}: the day picture for ${yesterday} failed`, err),
+    );
   }
   if (isMonday(date) && env.ownerId) {
     await sendExport(api, chatId, env.ownerId).catch((err) => log.error('Weekly export failed', err));

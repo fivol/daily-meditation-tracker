@@ -5,6 +5,21 @@ here follows one rule: **celebrate progress, never compare people.** The group i
 against its own past, each person against their own past; names are listed alphabetically,
 the pictures show people only as anonymous counts, and a dip is simply not mentioned.
 
+## The day picture
+
+Right after the daily leaderboard the bot posts one picture about the closed day — the group as a
+whole, no names. It is narrower than the period dashboards, so it reads large next to the long
+leaderboard text, and it holds only the day itself (longer trends live in the summaries below):
+
+- the day in numbers: hours together, sessions out of possible, how many practiced, regularity;
+- when we sat: every session as a dot on the day's clock (04:00 → 04:00), morning and evening
+  colours, bigger for longer sessions, with the first and the last check-in time;
+- how long: sessions of 1 hour, 45, 30 and 15 minutes;
+- joys of the day as counts: both sessions, hour-long sessions, streaks of 7+ days, new awards,
+  minutes per person — anything at zero is left out.
+
+A day without a single session gets no picture; a failed picture is only logged.
+
 ## Group summaries
 
 | Summary | Sent | Period | Compared with |
@@ -74,6 +89,7 @@ src/services/history.ts Firestore reads for a period / for one member
 src/charts/svg.ts       SVG primitives and the theme
 src/charts/blocks.ts    chart blocks: columns, line, calendar, rings, bars
 src/charts/group.ts     group dashboard
+src/charts/day.ts       day picture under the leaderboard
 src/charts/personal.ts  personal dashboard
 src/charts/png.ts       SVG → PNG (resvg, bundled Manrope font)
 ```

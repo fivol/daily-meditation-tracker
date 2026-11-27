@@ -1,4 +1,4 @@
-import { addDays, addMonths, dateRange, localHour, monthsBetween, weekday, weekStart } from './time.js';
+import { addDays, addMonths, dateRange, localHour, minutesFromDayStart, monthsBetween, weekday, weekStart } from './time.js';
 import type { Checkin, ChatSettings, DayStatus, Member, Minutes, Slot } from './types.js';
 
 export type PeriodKind = 'week' | 'month' | 'year';
@@ -370,5 +370,70 @@ export function personalHistory(
     weeks,
     ...sessionShape(done, settings),
     weekdays,
+  };
+}
+
+/** A done session placed on the practice day. */
+export interface Moment {
+  slot: Slot;
+  minutes: Minutes;
+  /** Minutes from the start of the practice day (the boundary hour). */
+  at: number;
+}
+
+/** One closed day of the group, for the picture under the daily leaderboard. */
+export interface DaySummary {
+  date: string;
+  sessions: number;
+  possible: number;
+  minutes: number;
+  people: number;
+  /** People who did both sessions. */
+  both: number;
+  durations: Record<Minutes, number>;
+  /** Poll check-ins by time of day; admin fixes carry no real time and are left out. */
+  moments: Moment[];
+  /** Members on a streak of a week or longer after the day. */
+  streaks: number;
+  /** People who got a title or an achievement for the day. */
+  awarded: number;
+}
+
+/**
+ * Aggregates a closed day. `members` are read after the close, so each one's last `recent`
+ * entry is that day; `checkins` are the day's check-ins.
+ */
+export function summarizeDay(
+  date: string,
+  members: Member[],
+  checkins: Checkin[],
+  settings: Pick<ChatSettings, 'timezone' | 'dayBoundaryHour'>,
+): DaySummary {
+  const entries = members.flatMap((m) => {
+    const entry = m.recent.at(-1);
+    return entry?.date === date ? [{ m, entry }] : [];
+  });
+  const counted = new Set(entries.map((e) => e.m.userId));
+  const done = checkins.filter((c) => c.date === date && c.status === 'done' && c.minutes && counted.has(c.userId));
+
+  const durations: Record<Minutes, number> = { 60: 0, 45: 0, 30: 0, 15: 0 };
+  for (const c of done) durations[c.minutes!] += 1;
+  // A vote changed from "didn't practice" keeps its first time, so it is placed by the last one.
+  const moments = done
+    .filter((c) => c.source === 'poll')
+    .map((c) => ({ slot: c.slot, minutes: c.minutes!, at: minutesFromDayStart(settings, c.wasSkipped ? c.updatedAt : c.firstAt) }))
+    .sort((a, b) => a.at - b.at);
+
+  return {
+    date,
+    sessions: entries.reduce((sum, e) => sum + e.entry.sessions, 0),
+    possible: 2 * entries.filter((e) => e.entry.status === 'active').length,
+    minutes: entries.reduce((sum, e) => sum + e.entry.minutes, 0),
+    people: entries.filter((e) => e.entry.sessions > 0).length,
+    both: entries.filter((e) => e.entry.sessions === 2).length,
+    durations,
+    moments,
+    streaks: entries.filter((e) => e.m.status === 'active' && e.m.currentStreak >= 7).length,
+    awarded: entries.filter((e) => Object.values(e.m.awards ?? {}).some((a) => a.date === date)).length,
   };
 }
