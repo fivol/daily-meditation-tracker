@@ -242,17 +242,18 @@ export function renderProgress(date: string, counts: Record<Slot, number>, total
 }
 
 export function renderReminder(targets: Member[], missLimit: number): string {
-  const lines = ['🌙 <b>Вечерняя практика ещё впереди</b>'];
+  const lines = ['🌙 <b>Вечерняя практика ещё впереди</b>', 'Хотя бы 15 минут — регулярность закрепляет привычку 🙏', ''];
   const fresh = targets.filter((m) => m.missedInRow === 0);
   const missing = targets.filter((m) => m.missedInRow > 0);
-  if (fresh.length) lines.push(`${fresh.map(mention).join(' · ')} — сегодня пока ни одной сессии`);
+  lines.push(...fresh.map(mention));
   for (const m of missing) {
     const dayNumber = m.missedInRow + 1;
-    const warning =
+    const line = `${mention(m)} — ${dayNumber}-й день без практики`;
+    lines.push(
       dayNumber >= missLimit
-        ? 'Если сегодня не получится, ночью бот попрощается с тобой (вернуться можно в любой момент) 🙏'
-        : 'Час на подушке — и всё в порядке 🙏';
-    lines.push(`${mention(m)} — ${dayNumber}-й день без практики. ${warning}`);
+        ? `${line}. Если сегодня не получится, ночью бот попрощается с тобой (вернуться можно в любой момент) 🙏`
+        : line,
+    );
   }
   return lines.join('\n');
 }
