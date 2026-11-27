@@ -95,6 +95,7 @@ src/
   services/           check-ins, members, jobs, scheduler
 scripts/recompute.ts  rebuild aggregates and grant awards retroactively
 scripts/preview.ts    render the dashboards to files (`npm run preview`)
+scripts/messages.ts   list and fix messages the bot sent (all are recorded)
 ```
 
 ## Docs

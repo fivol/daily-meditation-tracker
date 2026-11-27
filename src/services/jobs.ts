@@ -142,11 +142,21 @@ export async function runEvening(api: Api, chatId: number, _settings: ChatSettin
 
 /** 21:30 — ping active members with no session today. */
 export async function runReminder(api: Api, chatId: number, settings: ChatSettings, date: string) {
-  const [all, list] = await Promise.all([listMembers(chatId), checkinsOfDay(chatId, date)]);
-  const practiced = new Set(list.filter((c) => c.status === 'done').map((c) => c.userId));
-  const targets = all.filter((m) => m.status === 'active' && m.joinedDate <= date && !practiced.has(m.userId));
+  const targets = await reminderTargets(chatId, date);
   if (targets.length === 0) return;
   await api.sendMessage(chatId, renderReminder(targets, settings.missLimit), { parse_mode: 'HTML' });
+}
+
+/**
+ * Active members with no session on the date — checked in before `before` (ISO), if given, so a
+ * reminder can be re-rendered as it stood when it went out.
+ */
+export async function reminderTargets(chatId: number, date: string, before?: string): Promise<Member[]> {
+  const [all, list] = await Promise.all([listMembers(chatId), checkinsOfDay(chatId, date)]);
+  const practiced = new Set(
+    list.filter((c) => c.status === 'done' && (!before || c.firstAt < before)).map((c) => c.userId),
+  );
+  return all.filter((m) => m.status === 'active' && m.joinedDate <= date && !practiced.has(m.userId));
 }
 
 /**

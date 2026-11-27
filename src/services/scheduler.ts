@@ -5,6 +5,7 @@ import { log } from '../logger.js';
 import { addDays, momentOf, practiceDate } from '../time.js';
 import type { ChatSettings, JobName } from '../types.js';
 import { listChats } from './chats.js';
+import { sendingAs } from './sent.js';
 import { closeDay, runEvening, runLeaderboard, runMorning, runReminder, runSummaries } from './jobs.js';
 
 type Job = {
@@ -63,7 +64,7 @@ async function processChat(api: Api, chatId: number, settings: ChatSettings) {
 
   // Days are closed in order; nothing of today runs until yesterday is final.
   for (let d = addDays(settings.lastClosedDate, 1); d < today; d = addDays(d, 1)) {
-    await closeDay(api, chatId, settings, d);
+    await sendingAs('closeDay', () => closeDay(api, chatId, settings, d));
     log.info(`Chat ${chatId}: closed ${d}`);
   }
 
@@ -76,7 +77,7 @@ async function processChat(api: Api, chatId: number, settings: ChatSettings) {
     const stale = job.staleAfterHours !== undefined && now > due.plus({ hours: job.staleAfterHours });
     try {
       if (stale) log.warn(`Chat ${chatId}: ${job.name} for ${today} is too late, skipped`);
-      else await job.run(api, chatId, settings, today);
+      else await sendingAs(job.name, () => job.run(api, chatId, settings, today));
     } catch (err) {
       if (!isPermanent(err)) throw err;
       log.error(`Chat ${chatId}: ${job.name} for ${today} refused by Telegram, skipped`, err);

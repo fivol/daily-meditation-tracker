@@ -5,6 +5,7 @@ import { registerCommands } from './handlers/commands.js';
 import { registerEvents } from './handlers/events.js';
 import { log } from './logger.js';
 import { startScheduler } from './services/scheduler.js';
+import { sendingAs, trackSent } from './services/sent.js';
 
 process.on('unhandledRejection', (reason) => log.error('Unhandled rejection', reason));
 process.on('uncaughtException', (err) => {
@@ -16,6 +17,14 @@ const bot = new Bot(env.botToken);
 
 // Retries rate limits (429), Telegram server errors (5xx) and network failures.
 bot.api.config.use(autoRetry({ maxRetryAttempts: 5, maxDelaySeconds: 300 }));
+// Every sent message is recorded (chats/{id}/messages) so it can be found and edited later.
+bot.api.config.use(trackSent);
+
+// Replies are tagged with the command or the kind of update that caused them.
+bot.use((ctx, next) => {
+  const command = ctx.msg?.text?.match(/^\/\w+/)?.[0];
+  return sendingAs(command ?? Object.keys(ctx.update).find((k) => k !== 'update_id') ?? 'update', next);
+});
 
 registerEvents(bot);
 registerCommands(bot);

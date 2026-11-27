@@ -12,7 +12,8 @@
     "start": "tsx --env-file=.env src/index.ts",
     "build": "tsc",
     "recompute": "tsx --env-file=.env scripts/recompute.ts",
-    "preview": "tsx --env-file-if-exists=.env scripts/preview.ts"
+    "preview": "tsx --env-file-if-exists=.env scripts/preview.ts",
+    "messages": "tsx --env-file=.env scripts/messages.ts"
   },
   "dependencies": {
     "@expo-google-fonts/manrope": "^0.4.3",

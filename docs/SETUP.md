@@ -71,4 +71,10 @@ Members appear in the stats after their first vote or any message in the group.
 - **Change times / rules:** `/settings` in the group (admins).
 - **Fix a record:** `/fix @user 2026-11-15 evening 60` (or `remove`).
 - **Rebuild aggregates** from raw data: `npm run recompute -- <chatId> [userId]`.
+- **Sent messages:** every message the bot sends is recorded in `chats/{chatId}/messages/{messageId}`
+  (method, kind — the job or command that sent it —, text, `sentAt`, `editedAt`, `deletedAt`), so any
+  of them can be found and fixed later. In the container on the server:
+  `docker compose exec app npx tsx scripts/messages.ts list <chatId> [kind]` lists the latest ones;
+  `… scripts/messages.ts reminder <chatId> <messageId> [date]` rewrites an evening reminder with the
+  current wording, as it stood when it went out.
 - **Export:** `/export` sends a CSV of all check-ins to the admin's DM.
