@@ -168,13 +168,13 @@ Posted only if someone has 0 sessions today; pings exactly those people:
 🌙 Вечерняя практика ещё впереди
 Хотя бы 15 минут — регулярность закрепляет привычку 🙏
 
-@vika
+@vika — сегодня пока без практики
 @gosha — 2-й день без практики
 @dima — 3-й день без практики. Если сегодня не получится,
 ночью бот попрощается с тобой (вернуться можно в любой момент) 🙏
 ```
 
-One person per line; the day count appears only for those who also missed yesterday.
+One person per line; those who also missed yesterday get the day count instead.
 
 Users without a `@username` are mentioned via a `tg://user?id=` text mention.
 

@@ -245,7 +245,7 @@ export function renderReminder(targets: Member[], missLimit: number): string {
   const lines = ['🌙 <b>Вечерняя практика ещё впереди</b>', 'Хотя бы 15 минут — регулярность закрепляет привычку 🙏', ''];
   const fresh = targets.filter((m) => m.missedInRow === 0);
   const missing = targets.filter((m) => m.missedInRow > 0);
-  lines.push(...fresh.map(mention));
+  lines.push(...fresh.map((m) => `${mention(m)} — сегодня пока без практики`));
   for (const m of missing) {
     const dayNumber = m.missedInRow + 1;
     const line = `${mention(m)} — ${dayNumber}-й день без практики`;
